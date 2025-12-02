@@ -1,0 +1,6 @@
+@DeliInventoryManagement_1.Api_HostAddress = http://localhost:5064
+
+GET {{DeliInventoryManagement_1.Api_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
