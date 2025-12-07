@@ -63,7 +63,7 @@ Categories V2
 
 Suppliers V3
 
-the API is running correctly✨
+the API is running correctly
 
 Testing the System (Using Only Your Browser)
 
@@ -121,7 +121,7 @@ Suppliers (Type = "Supplier")
 
 No manual database setup is needed.
 
-📁 Project Features
+Project Features
 ✔️ API Versioning
 
 Products → V1
