@@ -1,4 +1,5 @@
 How to Run This Project (No Technical Knowledge Needed)
+
 ✔️ 1. Install the Required Tools
 
 Before running the project, install these free tools:
@@ -73,6 +74,7 @@ API (Swagger UI) – for developers (can be ignored by normal users)
 Blazor Web App – the main application
 
 Testing the System (Using Only Your Browser)
+
 ✔️Swagger UI lets you test everything without needing code.
 Products (Version 1): View products, Add a new product, Update a product, Delete a product, View summary information.
 Categories (Version 2): Add, edit, delete categories, View all categories, View category details.
