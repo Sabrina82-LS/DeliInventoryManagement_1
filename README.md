@@ -1,4 +1,4 @@
-How to Run This Project (No Technical Knowledge Needed)
+**How to Run This Project **
 
 ✔️ 1. Install the Required Tools
 
