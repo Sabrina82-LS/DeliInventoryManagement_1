@@ -27,4 +27,9 @@ public class Product
 
     [JsonProperty("Price")]
     public decimal Price { get; set; }
+
+    [JsonProperty("ReorderLevel")]
+    public int ReorderLevel { get; set; } = 5;   // default threshold
+
+
 }

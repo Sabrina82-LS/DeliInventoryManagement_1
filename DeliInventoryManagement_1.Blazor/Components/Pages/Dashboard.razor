@@ -1,0 +1,138 @@
+﻿@page "/dashboard"
+@using DeliInventoryManagement_1.Blazor.Models
+@inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
+@inject NavigationManager NavManager
+
+<h3>Dashboard</h3>
+
+@if (isLoading)
+{
+    <p>Loading...</p>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+else
+{
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="card-title">Total Products</h6>
+                    <h3>@productSummary.Count</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="card-title">Total Suppliers</h6>
+                    <h3>@totalSuppliers</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="card-title">Total Stock Quantity</h6>
+                    <h3>@productSummary.TotalQuantity</h3>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="card-title">Today's Sales</h6>
+                    <h3>@todaysSales</h3>
+                    <small>(placeholder)</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h5>Low Stock (Top 5)</h5>
+
+            @if (lowStockProducts.Count == 0)
+            {
+                <p>No low-stock items.</p>
+            }
+            else
+            {
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Category</th>
+                            <th>Quantity</th>
+                            <th>Reorder Level</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in lowStockProducts)
+                        {
+                            <tr>
+                                <td>@p.Name</td>
+                                <td>@p.CategoryName</td>
+                                <td>@p.Quantity</td>
+                                <td>@p.ReorderLevel</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            }
+        </div>
+
+        <div class="col-md-4">
+            <h5>Quick Links</h5>
+            <div class="d-grid gap-2">
+                <button class="btn btn-primary" @onclick="@(() => NavManager.NavigateTo("/products"))">
+                    Products
+                </button>
+                <button class="btn btn-secondary" @onclick="@(() => NavManager.NavigateTo("/stock"))">
+                    Stock
+                </button>
+                <button class="btn btn-success" @onclick="@(() => NavManager.NavigateTo("/sales"))">
+                    Sales
+                </button>
+                <button class="btn btn-info" @onclick="@(() => NavManager.NavigateTo("/reports"))">
+                    Reports
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    bool isLoading = true;
+    string? errorMessage;
+
+    ProductSummaryDto productSummary = new();
+    int totalSuppliers;
+    List<ProductDto> lowStockProducts = new();
+    decimal todaysSales = 0m; // placeholder
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            isLoading = true;
+            productSummary = await DashboardService.GetProductSummaryAsync();
+            totalSuppliers = await DashboardService.GetSupplierCountAsync();
+            lowStockProducts = await DashboardService.GetLowStockProductsAsync(5);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading dashboard: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
