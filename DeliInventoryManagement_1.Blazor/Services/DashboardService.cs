@@ -38,4 +38,34 @@ public class DashboardService : IDashboardService
         return items.Where(p => p.ReorderLevel <= 0 || p.Quantity < p.ReorderLevel)
                     .ToList();
     }
+
+    public async Task<List<ProductDto>> GetAllProductsAsync(string? search, string? category)
+    {
+        var query = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(search))
+            query.Add($"search={Uri.EscapeDataString(search)}");
+        if (!string.IsNullOrWhiteSpace(category))
+            query.Add($"categoryId={Uri.EscapeDataString(category)}");
+
+        var qs = query.Count > 0 ? "?" + string.Join("&", query) : string.Empty;
+
+        var result = await _http.GetFromJsonAsync<PagedResult<ProductDto>>(
+            $"api/v1/products{qs}");
+
+        return result?.Items ?? new List<ProductDto>();
+    }
+
+    public async Task<List<CategoryDto>> GetAllCategoriesAsync()
+    {
+        var items = await _http.GetFromJsonAsync<List<CategoryDto>>("api/v2/categories");
+        return items ?? new List<CategoryDto>();
+    }
+
+    public async Task<List<SupplierDto>> GetAllSuppliersAsync()
+    {
+        var items = await _http.GetFromJsonAsync<List<SupplierDto>>("api/v3/suppliers");
+        return items ?? new List<SupplierDto>();
+    }
+
 }

@@ -1,0 +1,209 @@
+﻿@page "/sales"
+@using DeliInventoryManagement_1.Blazor.Models
+@inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
+
+<h3>Sales</h3>
+
+@if (isLoading)
+{
+    <p>Loading products...</p>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+else
+{
+    <div class="card mb-3">
+        <div class="card-header">
+            New Sale
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-3">
+                    <label class="form-label">Date</label>
+                    <input type="date" class="form-control" @bind="saleDate" />
+
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Product</label>
+                    <select class="form-select" @bind="selectedProductId">
+                        <option value="">-- Select product --</option>
+                        @foreach (var p in products)
+                        {
+                            <option value="@p.Id">@p.Name (@p.CategoryName)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" min="1" class="form-control" @bind="lineQuantity" />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Unit Price</label>
+                    <input type="number" step="0.01" class="form-control" @bind="lineUnitPrice" />
+                </div>
+            </div>
+
+            <button class="btn btn-primary" @onclick="AddLine">Add line</button>
+
+            @if (!string.IsNullOrEmpty(lineError))
+            {
+                <div class="text-danger mt-2">@lineError</div>
+            }
+        </div>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-header">
+            Sale Lines
+        </div>
+        <div class="card-body">
+            @if (lines.Count == 0)
+            {
+                <p>No lines added yet.</p>
+            }
+            else
+            {
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">Unit Price</th>
+                            <th class="text-end">Line Total</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in lines)
+                        {
+                            <tr>
+                                <td>@l.ProductName</td>
+                                <td class="text-end">@l.Quantity</td>
+                                <td class="text-end">@l.UnitPrice.ToString("0.00")</td>
+                                <td class="text-end">@l.Total.ToString("0.00")</td>
+                                <td class="text-end">
+                                    <button class="btn btn-link btn-sm" @onclick="() => RemoveLine(l)">Remove</button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+
+                <div class="text-end fw-bold">
+                    Total: @lines.Sum(l => l.Total).ToString("0.00")
+                </div>
+            }
+        </div>
+        <div class="card-footer text-end">
+            <button class="btn btn-success" @onclick="SaveSale" disabled="@(lines.Count == 0)">
+                Save Sale
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(saveMessage))
+    {
+        <div class="alert alert-info">@saveMessage</div>
+    }
+}
+
+@code {
+    bool isLoading;
+    string? errorMessage;
+
+    List<ProductDto> products = new();
+
+    DateTime saleDate = DateTime.Today;
+    string? selectedProductId;
+    int lineQuantity = 1;
+    decimal lineUnitPrice = 0m;
+    string? lineError;
+
+    string? saveMessage;
+
+    class SaleLineVm
+    {
+        public string ProductId { get; set; } = string.Empty;
+        public string ProductName { get; set; } = string.Empty;
+        public int Quantity { get; set; }
+        public decimal UnitPrice { get; set; }
+        public decimal Total => Quantity * UnitPrice;
+    }
+
+    List<SaleLineVm> lines = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            isLoading = true;
+            products = await DashboardService.GetAllProductsAsync(null, null);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading products: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void AddLine()
+    {
+        lineError = null;
+        saveMessage = null;
+
+        if (string.IsNullOrEmpty(selectedProductId))
+        {
+            lineError = "Select a product.";
+            return;
+        }
+
+        var product = products.First(p => p.Id == selectedProductId);
+
+        if (lineQuantity <= 0)
+        {
+            lineError = "Quantity must be > 0.";
+            return;
+        }
+
+        if (lineUnitPrice <= 0)
+        {
+            // default to some value (you could load from Product.Price if you add it to ProductDto)
+            lineUnitPrice = 1m;
+        }
+
+        // TODO: check available stock here if you want
+
+        lines.Add(new SaleLineVm
+        {
+            ProductId = product.Id,
+            ProductName = product.Name,
+            Quantity = lineQuantity,
+            UnitPrice = lineUnitPrice
+        });
+
+        // reset
+        lineQuantity = 1;
+        lineUnitPrice = 0m;
+    }
+
+    private void RemoveLine(SaleLineVm line)
+    {
+        lines.Remove(line);
+    }
+
+    private async Task SaveSale()
+    {
+        // For now just show message; later you can POST to /api/v1/sales
+        saveMessage = $"Sale saved locally with {lines.Count} lines, total {lines.Sum(l => l.Total):0.00}. " +
+                      "TODO: send to API and reduce stock.";
+        await Task.CompletedTask;
+
+        // Clear lines
+        lines.Clear();
+    }
+}

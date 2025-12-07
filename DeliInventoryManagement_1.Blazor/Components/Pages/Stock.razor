@@ -1,0 +1,125 @@
+﻿@page "/stock"
+@using DeliInventoryManagement_1.Blazor.Models
+@inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
+
+<h3>Stock</h3>
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <label class="form-label">Search by product name</label>
+        <input class="form-control" @bind="searchText" @bind:event="oninput" />
+    </div>
+    <div class="col-md-4">
+        <label class="form-label">Filter by category</label>
+        <select class="form-select" @bind="selectedCategoryId">
+            <option value="">All categories</option>
+            @foreach (var c in categories)
+            {
+                <option value="@c.Id">@c.Name</option>
+            }
+        </select>
+    </div>
+    <div class="col-md-4 d-flex align-items-end">
+        <button class="btn btn-primary me-2" @onclick="LoadStockAsync">Apply</button>
+        <button class="btn btn-outline-secondary" @onclick="ResetFilters">Clear</button>
+    </div>
+</div>
+
+@if (isLoading)
+{
+    <p>Loading stock...</p>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+else
+{
+    <table class="table table-striped table-sm">
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Category</th>
+                <th class="text-end">Quantity</th>
+                <th class="text-center">Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in products)
+            {
+                var isLow = p.Quantity < p.ReorderLevel;
+                <tr>
+                    <td>@p.Name</td>
+                    <td>@p.CategoryName</td>
+                    <td class="text-end">@p.Quantity</td>
+                    <td class="text-center">
+                        @if (isLow)
+                        {
+                            <span title="Low stock">
+                                ⚠ Low
+                            </span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    bool isLoading;
+    string? errorMessage;
+
+    string? searchText;
+    string? selectedCategoryId;
+
+    List<ProductDto> products = new();
+    List<CategoryDto> categories = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadInitialAsync();
+    }
+
+    private async Task LoadInitialAsync()
+    {
+        try
+        {
+            isLoading = true;
+            categories = await DashboardService.GetAllCategoriesAsync();
+            products = await DashboardService.GetAllProductsAsync(null, null);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading stock: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task LoadStockAsync()
+    {
+        try
+        {
+            isLoading = true;
+            products = await DashboardService.GetAllProductsAsync(searchText, selectedCategoryId);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading stock: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ResetFilters()
+    {
+        searchText = null;
+        selectedCategoryId = null;
+        await LoadStockAsync();
+    }
+}

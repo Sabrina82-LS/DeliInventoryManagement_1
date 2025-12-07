@@ -1,0 +1,83 @@
+﻿@page "/reports"
+@using DeliInventoryManagement_1.Blazor.Models
+@inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
+
+<h3>Reports</h3>
+
+@if (isLoading)
+{
+    <p>Loading reports...</p>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+else
+{
+    <h4>Stock Report</h4>
+
+    <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="lowStockOnly" @bind="showLowStockOnly" />
+        <label class="form-check-label" for="lowStockOnly">
+            Show low-stock only
+        </label>
+    </div>
+
+    <table class="table table-sm table-striped">
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Category</th>
+                <th class="text-end">Quantity</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var p in FilteredProducts)
+            {
+                <tr>
+                    <td>@p.Name</td>
+                    <td>@p.CategoryName</td>
+                    <td class="text-end">@p.Quantity</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <hr />
+
+    <h4>Sales Report</h4>
+    <p>TODO: implement when Sales API is available.</p>
+
+    <h4>Supplier Report</h4>
+    <p>TODO: implement when Restocks API is available.</p>
+}
+
+@code {
+    bool isLoading;
+    string? errorMessage;
+
+    bool showLowStockOnly;
+    List<ProductDto> products = new();
+
+    IEnumerable<ProductDto> FilteredProducts =>
+        showLowStockOnly
+            ? products.Where(p => p.Quantity < p.ReorderLevel)
+            : products;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            isLoading = true;
+            products = await DashboardService.GetAllProductsAsync(null, null);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading reports: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
