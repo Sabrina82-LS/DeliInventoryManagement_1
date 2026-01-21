@@ -234,4 +234,68 @@ app.MapDelete($"{suppliersV3Prefix}/suppliers/{{id}}", async (string id, ISuppli
 
 // TODO: add similar endpoints for Categories & Suppliers here.
 
+
+app.MapPost("/api/test/seed", async (IConfiguration cfg, CosmosClient cosmos, IWebHostEnvironment env) =>
+{
+    // Segurança: endpoint de seed só em Development
+    if (!env.IsDevelopment())
+        return Results.NotFound();
+
+    try
+    {
+        var c = cfg.GetSection("CosmosDb");
+
+        var dbId = c["DatabaseId"];
+        var inventoryContainerId = c["ContainerId"]; // ex: Inventory
+        var suppliersContainerId = c["SuppliersContainerId"]; // ex: Suppliers (opcional)
+        var partitionKeyPath = c["PartitionKeyPath"] ?? "/Type";
+
+        if (string.IsNullOrWhiteSpace(dbId) || string.IsNullOrWhiteSpace(inventoryContainerId))
+            return Results.BadRequest("CosmosDb: 'DatabaseId' e/ou 'ContainerId' não configurados no appsettings.json.");
+
+        // Se não definires SuppliersContainerId, usa o mesmo ContainerId
+        suppliersContainerId ??= inventoryContainerId;
+
+        var db = cosmos.GetDatabase(dbId);
+
+        // Garante containers (cria se não existir)
+        await db.CreateContainerIfNotExistsAsync(new ContainerProperties(inventoryContainerId, partitionKeyPath));
+        await db.CreateContainerIfNotExistsAsync(new ContainerProperties(suppliersContainerId, partitionKeyPath));
+
+        var inventory = db.GetContainer(inventoryContainerId);
+        var suppliers = db.GetContainer(suppliersContainerId);
+
+        // Executa o seed
+        await DeliInventoryManagement_1.Api.Tests.SeedTestData.RunAsync(inventory, suppliers);
+
+        return Results.Ok(new
+        {
+            message = "Seed completed successfully",
+            database = dbId,
+            inventoryContainer = inventoryContainerId,
+            suppliersContainer = suppliersContainerId,
+            suppliersInserted = 2,
+            productsInserted = 15
+        });
+    }
+    catch (CosmosException ex)
+    {
+        return Results.Problem(
+            title: "Cosmos DB error during seed",
+            detail: ex.Message,
+            statusCode: (int)ex.StatusCode
+        );
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(
+            title: "Unexpected error during seed",
+            detail: ex.Message,
+            statusCode: 500
+        );
+    }
+})
+.WithName("SeedTestData")
+.WithTags("Test");
+
 app.Run();

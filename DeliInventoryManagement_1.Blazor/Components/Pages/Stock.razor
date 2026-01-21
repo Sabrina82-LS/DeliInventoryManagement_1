@@ -9,6 +9,7 @@
         <label class="form-label">Search by product name</label>
         <input class="form-control" @bind="searchText" @bind:event="oninput" />
     </div>
+
     <div class="col-md-4">
         <label class="form-label">Filter by category</label>
         <select class="form-select" @bind="selectedCategoryId">
@@ -19,6 +20,7 @@
             }
         </select>
     </div>
+
     <div class="col-md-4 d-flex align-items-end">
         <button class="btn btn-primary me-2" @onclick="LoadStockAsync">Apply</button>
         <button class="btn btn-outline-secondary" @onclick="ResetFilters">Clear</button>
@@ -35,11 +37,15 @@ else if (!string.IsNullOrEmpty(errorMessage))
 }
 else
 {
-    <table class="table table-striped table-sm">
+    <table class="table table-striped table-sm align-middle">
         <thead>
             <tr>
                 <th>Product</th>
                 <th>Category</th>
+                <th>Type</th>
+                <th class="text-end">Cost</th>
+                <th class="text-end">Price</th>
+                <th class="text-end">Reorder</th>
                 <th class="text-end">Quantity</th>
                 <th class="text-center">Status</th>
             </tr>
@@ -48,16 +54,25 @@ else
             @foreach (var p in products)
             {
                 var isLow = p.Quantity < p.ReorderLevel;
+
                 <tr>
                     <td>@p.Name</td>
                     <td>@p.CategoryName</td>
+                    <td>@(string.IsNullOrWhiteSpace(p.Type) ? "-" : p.Type)</td>
+
+                    <td class="text-end">@p.Cost.ToString("0.00")</td>
+                    <td class="text-end">@p.Price.ToString("0.00")</td>
+                    <td class="text-end">@p.ReorderLevel</td>
                     <td class="text-end">@p.Quantity</td>
+
                     <td class="text-center">
                         @if (isLow)
                         {
-                            <span title="Low stock">
-                                ⚠ Low
-                            </span>
+                            <span title="Low stock">⚠ Low</span>
+                        }
+                        else
+                        {
+                            <span title="OK">OK</span>
                         }
                     </td>
                 </tr>
@@ -86,6 +101,8 @@ else
         try
         {
             isLoading = true;
+            errorMessage = null;
+
             categories = await DashboardService.GetAllCategoriesAsync();
             products = await DashboardService.GetAllProductsAsync(null, null);
         }
@@ -104,6 +121,8 @@ else
         try
         {
             isLoading = true;
+            errorMessage = null;
+
             products = await DashboardService.GetAllProductsAsync(searchText, selectedCategoryId);
         }
         catch (Exception ex)
