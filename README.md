@@ -1,4 +1,5 @@
-How to Run This Project (No Technical Knowledge Needed)
+**How to Run This Project **
+
 ✔️ 1. Install the Required Tools
 
 Before running the project, install these free tools:
@@ -43,9 +44,23 @@ No additional setup is needed — Visual Studio will handle the installation for
 
 Open the Azure Cosmos DB Emulator from your desktop or Start Menu.
 
-Wait until its dashboard opens in your browser.
-
 Keep the Emulator running in the background.
+
+Make sure both projects will run
+
+In Visual Studio:
+Click Solution → Properties → Startup Projects
+Select:
+
+✔️ Multiple startup projects
+
+Set both:
+
+DeliInventoryManagement_1.Api → Start
+
+DeliInventoryManagement_1.Blazor → Start
+
+Click Apply → OK
 
 ✔️ 3. Open and Run the Project
 
@@ -53,101 +68,23 @@ Open the project folder in Visual Studio
 
 Press F5 or click the green ▶️ Run button
 
-A page named Swagger UI will open in your browser
+You will see two browser tabs open:
 
-If you see sections for:
-
-Products V1
-
-Categories V2
-
-Suppliers V3
-
-the API is running correctly
+API (Swagger UI) – for developers (can be ignored by normal users)
+Blazor Web App – the main application
 
 Testing the System (Using Only Your Browser)
 
-Swagger UI lets you test everything without needing code.
+✔️Swagger UI lets you test everything without needing code.
+Products (Version 1): View products, Add a new product, Update a product, Delete a product, View summary information.
+Categories (Version 2): Add, edit, delete categories, View all categories, View category details.
+Suppliers (Version 3): Add suppliers, Update supplier contact info, Delete suppliers, View all suppliers.
 
-✔️ Products (Version 1)
-
-View products
-
-Add a new product
-
-Update a product
-
-Delete a product
-
-View summary information
-
-✔️ Categories (Version 2)
-
-Add, edit, delete categories
-
-View all categories
-
-View category details
-
-✔️ Suppliers (Version 3)
-
-Add suppliers
-
-Update supplier contact info
-
-Delete suppliers
-
-View all suppliers
-
-All actions are performed using the “Try It Out” button inside Swagger.
-
-How Data Is Stored (Cosmos DB)
-
-The API uses the Cosmos Emulator with:
-
-Database → DeliInventoryDb
-
-Container → InventoryItems
-
-Partition Key → /Type
-
-The API automatically stores:
-
-Products (Type = "Product")
-
-Categories (Type = "Category")
-
-Suppliers (Type = "Supplier")
-
-No manual database setup is needed.
-
-Project Features
-✔️ API Versioning
-
-Products → V1
-
-Categories → V2
-
-Suppliers → V3
-
-✔️ Cosmos DB Integration
-
-Documents stored locally in JSON format.
-
-✔️ Sorting, Filtering, Paging
-
-Available in the Products API.
-
-✔️ In-Memory Caching
-
-Improves performance when loading lists.
-
-✔️ Organized Swagger Documentation
-
-Sections appear in this order:
-
-1 - Products V1
-
-2 - Categories V2
-
-3 - Suppliers V3
+✔️Blazor Web App – the main application:
+Dashboard
+Stock
+Products
+Suppliers
+Sales
+Restocks
+Reports
