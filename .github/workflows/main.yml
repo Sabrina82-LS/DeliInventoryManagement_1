@@ -20,7 +20,7 @@ permissions:
 env:
   DOTNET_VERSION: "8.0.x"
   # Point this to your xUnit test project (csproj). Adjust as needed. Minor change
-  TEST_PROJECT: "Tests"
+  TEST_PROJECT: "SeedTestData"
 
 jobs:
   build-and-test:
