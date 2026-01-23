@@ -29,12 +29,13 @@ else
                         <option value="">-- Select supplier --</option>
                         @foreach (var s in suppliers)
                         {
-                            <option value="@s.Id">@s.Name</option>
+                            <option value="@s.Id">@s.Id - @s.Name</option>
+
                         }
                     </select>
                 </div>
             </div>
-
+                
             <div class="row mb-3">
                 <div class="col-md-5">
                     <label class="form-label">Product</label>
@@ -42,7 +43,8 @@ else
                         <option value="">-- Select product --</option>
                         @foreach (var p in products)
                         {
-                            <option value="@p.Id">@p.Name (@p.CategoryName)</option>
+                            <option value="@p.Id">@p.Id - @p.Name (@p.CategoryName)</option>
+
                         }
                     </select>
                 </div>
@@ -88,7 +90,7 @@ else
                         @foreach (var l in lines)
                         {
                             <tr>
-                                <td>@l.ProductName</td>
+                                <td>@l.ProductId - @l.ProductName</td>
                                 <td class="text-end">@l.Quantity</td>
                                 <td class="text-end">@l.UnitCost.ToString("0.00")</td>
                                 <td class="text-end">@l.Total.ToString("0.00")</td>
@@ -142,6 +144,7 @@ else
         public decimal UnitCost { get; set; }
         public decimal Total => Quantity * UnitCost;
     }
+
 
     List<RestockLineVm> lines = new();
 

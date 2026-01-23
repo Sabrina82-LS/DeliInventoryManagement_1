@@ -3,6 +3,7 @@
 @inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
 
 <h3>Stock</h3>
+
 <div class="row mb-3">
     <div class="col-md-4">
         <label class="form-label">Search by product name</label>
@@ -36,7 +37,6 @@
     </div>
 </div>
 
-
 @if (isLoading)
 {
     <p>Loading stock...</p>
@@ -50,6 +50,7 @@ else
     <table class="table table-striped table-sm align-middle">
         <thead>
             <tr>
+                <th>ID</th>
                 <th>Product</th>
                 <th>Category</th>
                 <th>Type</th>
@@ -66,6 +67,7 @@ else
                 var isLow = p.Quantity < p.ReorderLevel;
 
                 <tr>
+                    <td class="text-muted">@p.Id</td>
                     <td>@p.Name</td>
                     <td>@p.CategoryName</td>
                     <td>@(string.IsNullOrWhiteSpace(p.Type) ? "-" : p.Type)</td>
@@ -86,6 +88,7 @@ else
                         }
                     </td>
                 </tr>
+
             }
         </tbody>
     </table>
@@ -95,7 +98,6 @@ else
     private bool isLoading;
     private string? errorMessage;
 
-    // Better: start as empty string (not null) for @bind inputs
     private string searchText = "";
     private string selectedCategoryId = "";
 
@@ -103,9 +105,7 @@ else
     private List<CategoryDto> categories = new();
 
     protected override async Task OnInitializedAsync()
-    {
-        await LoadInitialAsync();
-    }
+        => await LoadInitialAsync();
 
     private async Task LoadInitialAsync()
     {
@@ -124,7 +124,6 @@ else
         finally
         {
             isLoading = false;
-            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -135,7 +134,6 @@ else
             isLoading = true;
             errorMessage = null;
 
-            // Normalize empty -> null (para sua API/Service filtrar certo)
             var text = string.IsNullOrWhiteSpace(searchText) ? null : searchText;
             var cat = string.IsNullOrWhiteSpace(selectedCategoryId) ? null : selectedCategoryId;
 
@@ -148,7 +146,6 @@ else
         finally
         {
             isLoading = false;
-            await InvokeAsync(StateHasChanged);
         }
     }
 
