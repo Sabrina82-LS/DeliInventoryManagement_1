@@ -7,11 +7,18 @@ public static class SeedTestData
 {
     public static async Task RunAsync(Container inventoryContainer, Container suppliersContainer)
     {
+        // ✅ ADICIONADO: Não roda seed se já existir pelo menos 1 Product
+        // (evita duplicar 15 produtos a cada execução)
+        var existingProducts = await CountByTypeAsync(inventoryContainer, "Product");
+        if (existingProducts > 0)
+            return;
+
         // 1) Suppliers
+        // ✅ ALTERADO: IDs fixos para evitar duplicação a cada seed
         var suppliers = new List<Supplier>
         {
-            new Supplier { Id = Guid.NewGuid().ToString(), Type = "Supplier", Name = "Local Farm Supplier" },
-            new Supplier { Id = Guid.NewGuid().ToString(), Type = "Supplier", Name = "City Wholesale Supplier" }
+            new Supplier { Id = "s1", Type = "Supplier", Name = "Local Farm Supplier" },
+            new Supplier { Id = "s2", Type = "Supplier", Name = "City Wholesale Supplier" }
         };
 
         foreach (var s in suppliers)
@@ -58,6 +65,24 @@ public static class SeedTestData
             await inventoryContainer.UpsertItemAsync(p, new PartitionKey(p.Type));
     }
 
+    // ✅ ADICIONADO: helper para contar documentos por Type
+    private static async Task<int> CountByTypeAsync(Container container, string type)
+    {
+        var q = new QueryDefinition("SELECT VALUE COUNT(1) FROM c WHERE c.Type = @type")
+            .WithParameter("@type", type);
+
+        using var it = container.GetItemQueryIterator<int>(q);
+        var total = 0;
+
+        while (it.HasMoreResults)
+        {
+            var resp = await it.ReadNextAsync();
+            total += resp.Resource.FirstOrDefault();
+        }
+
+        return total;
+    }
+
     private static Product NewProduct(string name, string categoryId, string categoryName, int qty, decimal cost, decimal price, int reorder)
         => new Product
         {
@@ -72,3 +97,4 @@ public static class SeedTestData
             ReorderLevel = reorder
         };
 }
+

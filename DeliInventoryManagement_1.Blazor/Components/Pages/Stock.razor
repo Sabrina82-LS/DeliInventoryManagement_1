@@ -3,11 +3,13 @@
 @inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
 
 <h3>Stock</h3>
-
 <div class="row mb-3">
     <div class="col-md-4">
         <label class="form-label">Search by product name</label>
-        <input class="form-control" @bind="searchText" @bind:event="oninput" />
+        <input class="form-control"
+               placeholder="Type a product name..."
+               @bind="searchText"
+               @bind:event="oninput" />
     </div>
 
     <div class="col-md-4">
@@ -22,10 +24,18 @@
     </div>
 
     <div class="col-md-4 d-flex align-items-end">
-        <button class="btn btn-primary me-2" @onclick="LoadStockAsync">Apply</button>
-        <button class="btn btn-outline-secondary" @onclick="ResetFilters">Clear</button>
+        <button type="button" class="btn btn-primary me-2"
+                @onclick="async () => await LoadStockAsync()">
+            Apply
+        </button>
+
+        <button type="button" class="btn btn-outline-secondary"
+                @onclick="async () => await ResetFilters()">
+            Clear
+        </button>
     </div>
 </div>
+
 
 @if (isLoading)
 {
@@ -82,14 +92,15 @@ else
 }
 
 @code {
-    bool isLoading;
-    string? errorMessage;
+    private bool isLoading;
+    private string? errorMessage;
 
-    string? searchText;
-    string? selectedCategoryId;
+    // Better: start as empty string (not null) for @bind inputs
+    private string searchText = "";
+    private string selectedCategoryId = "";
 
-    List<ProductDto> products = new();
-    List<CategoryDto> categories = new();
+    private List<ProductDto> products = new();
+    private List<CategoryDto> categories = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -113,6 +124,7 @@ else
         finally
         {
             isLoading = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
@@ -123,7 +135,11 @@ else
             isLoading = true;
             errorMessage = null;
 
-            products = await DashboardService.GetAllProductsAsync(searchText, selectedCategoryId);
+            // Normalize empty -> null (para sua API/Service filtrar certo)
+            var text = string.IsNullOrWhiteSpace(searchText) ? null : searchText;
+            var cat = string.IsNullOrWhiteSpace(selectedCategoryId) ? null : selectedCategoryId;
+
+            products = await DashboardService.GetAllProductsAsync(text, cat);
         }
         catch (Exception ex)
         {
@@ -132,13 +148,14 @@ else
         finally
         {
             isLoading = false;
+            await InvokeAsync(StateHasChanged);
         }
     }
 
     private async Task ResetFilters()
     {
-        searchText = null;
-        selectedCategoryId = null;
+        searchText = "";
+        selectedCategoryId = "";
         await LoadStockAsync();
     }
 }

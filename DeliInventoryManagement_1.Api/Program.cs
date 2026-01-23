@@ -16,12 +16,21 @@ builder.Services.AddMemoryCache();
 builder.Services.AddSingleton(sp =>
 {
     var config = sp.GetRequiredService<IConfiguration>().GetSection("CosmosDb");
-    var endpoint = config["AccountEndpoint"]!;
-    var key = config["AccountKey"]!;
+
+    // ✅ Compatível com os nomes que você já usou:
+    // AccountEndpoint / AccountKey
+    // ou Endpoint / Key (caso você use esses)
+    var endpoint = config["AccountEndpoint"] ?? config["Endpoint"];
+    var key = config["AccountKey"] ?? config["Key"];
+
+    if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(key))
+        throw new InvalidOperationException("CosmosDb: 'AccountEndpoint/Endpoint' e 'AccountKey/Key' não configurados no appsettings.json.");
+
     var cosmosClientOptions = new CosmosClientOptions
     {
         SerializerOptions = new CosmosSerializationOptions
         {
+            // ✅ Mantém exatamente o nome das propriedades (Type, Name, CategoryId, ...)
             PropertyNamingPolicy = CosmosPropertyNamingPolicy.Default
         }
     };
@@ -34,8 +43,94 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ICategoryService, CategoryService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 
-
 var app = builder.Build();
+
+// ✅ Cria DB + Container automaticamente no startup
+// e faz seed automático de 50 produtos (apenas DEV e se estiver vazio)
+using (var scope = app.Services.CreateScope())
+{
+    var cfg = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+    var env = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
+    var cosmos = scope.ServiceProvider.GetRequiredService<CosmosClient>();
+
+    var c = cfg.GetSection("CosmosDb");
+
+    // ✅ Compatível com DatabaseId/ContainerId e DatabaseName/ContainerName
+    var dbId = c["DatabaseId"] ?? c["DatabaseName"];
+    var containerId = c["ContainerId"] ?? c["ContainerName"] ?? "Items";
+
+    // Recomendo /Type para container com múltiplas entidades
+    var partitionKeyPath = c["PartitionKeyPath"] ?? "/Type";
+
+    if (string.IsNullOrWhiteSpace(dbId))
+        throw new InvalidOperationException("CosmosDb: 'DatabaseId' (ou 'DatabaseName') não configurado no appsettings.json.");
+
+    // 1) cria DB
+    var dbResp = await cosmos.CreateDatabaseIfNotExistsAsync(dbId);
+
+    // 2) cria Container
+    await dbResp.Database.CreateContainerIfNotExistsAsync(
+        new ContainerProperties(containerId, partitionKeyPath)
+    );
+
+    // 3) Seed automático (somente DEV e se não houver Products)
+    if (env.IsDevelopment())
+    {
+        var container = cosmos.GetContainer(dbId, containerId);
+
+        // Conta Products existentes
+        var countQuery = new QueryDefinition("SELECT VALUE COUNT(1) FROM c WHERE c.Type = @type")
+            .WithParameter("@type", "Product");
+
+        using var it = container.GetItemQueryIterator<int>(countQuery);
+        var productCount = 0;
+
+        while (it.HasMoreResults)
+        {
+            var resp = await it.ReadNextAsync();
+            productCount += resp.Resource.FirstOrDefault();
+        }
+
+        if (productCount == 0)
+        {
+            // Categorias simples para os 50 produtos
+            var categories = new[]
+            {
+                new { Id = "c1", Name = "Meat" },
+                new { Id = "c2", Name = "Dairy" },
+                new { Id = "c3", Name = "Beverages" },
+                new { Id = "c4", Name = "Bakery" },
+                new { Id = "c5", Name = "Vegetables" },
+            };
+
+            var rnd = new Random();
+
+            for (int i = 1; i <= 50; i++)
+            {
+                var cat = categories[rnd.Next(categories.Length)];
+
+                var cost = Math.Round((decimal)(rnd.NextDouble() * 20 + 1), 2); // 1.00..21.00
+                var price = Math.Round(cost * (decimal)(1.25 + rnd.NextDouble() * 0.75), 2); // margem 25%..100%
+
+                var product = new Product
+                {
+                    Id = $"p{i}",               // p1..p50 (facilita)
+                    Type = "Product",
+                    Name = $"Product {i}",
+                    CategoryId = cat.Id,
+                    CategoryName = cat.Name,
+                    Quantity = rnd.Next(0, 200),
+                    Cost = cost,
+                    Price = price,
+                    ReorderLevel = rnd.Next(3, 15)
+                };
+
+                // PartitionKey = product.Type (porque /Type)
+                await container.UpsertItemAsync(product, new PartitionKey(product.Type));
+            }
+        }
+    }
+}
 
 if (app.Environment.IsDevelopment())
 {
@@ -51,9 +146,6 @@ var categoriesV2Prefix = "/api/v2";
 var suppliersV3Prefix = "/api/v3";
 
 
-// ========== PRODUCT ENDPOINTS ==========
-
-// GET /api/v1/products  (search, filter, sort, paging)
 // ========== PRODUCT ENDPOINTS (V1) ==========
 app.MapGet($"{productsV1Prefix}/products", async (
     string? search,
@@ -130,7 +222,6 @@ app.MapGet($"{productsV1Prefix}/products/summary", async (IProductService servic
 .Produces<ProductSummary>(StatusCodes.Status200OK);
 
 
-// ========== CATEGORY ENDPOINTS ==========
 // ========== CATEGORY ENDPOINTS (V2) ==========
 app.MapGet($"{categoriesV2Prefix}/categories", async (ICategoryService service) =>
 {
@@ -231,71 +322,110 @@ app.MapDelete($"{suppliersV3Prefix}/suppliers/{{id}}", async (string id, ISuppli
 .Produces(StatusCodes.Status404NotFound);
 
 
-
-// TODO: add similar endpoints for Categories & Suppliers here.
-
-
-app.MapPost("/api/test/seed", async (IConfiguration cfg, CosmosClient cosmos, IWebHostEnvironment env) =>
+// ✅ Seu endpoint de seed manual (mantido)
+app.MapPost("/api/test/seed/products15", async (IConfiguration cfg, CosmosClient cosmos, IWebHostEnvironment env) =>
 {
-    // Segurança: endpoint de seed só em Development
     if (!env.IsDevelopment())
         return Results.NotFound();
 
-    try
+    var c = cfg.GetSection("CosmosDb");
+
+    var dbId = c["DatabaseId"] ?? c["DatabaseName"];
+    var containerId = c["ContainerId"] ?? c["ContainerName"] ?? "Inventory";
+    var pkPath = c["PartitionKeyPath"] ?? "/Type";
+
+    if (string.IsNullOrWhiteSpace(dbId) || string.IsNullOrWhiteSpace(containerId))
+        return Results.BadRequest("Configure CosmosDb: DatabaseId e ContainerId no appsettings.json.");
+
+    var dbResp = await cosmos.CreateDatabaseIfNotExistsAsync(dbId);
+    await dbResp.Database.CreateContainerIfNotExistsAsync(new ContainerProperties(containerId, pkPath));
+
+    var container = cosmos.GetContainer(dbId, containerId);
+
+    // 🔥 NOVO: apagar todos os auto-* existentes
+    var query = new QueryDefinition(
+        "SELECT c.id FROM c WHERE c.Type = @type AND STARTSWITH(c.id, @prefix)")
+        .WithParameter("@type", "Product")
+        .WithParameter("@prefix", "auto-");
+
+    using (var it = container.GetItemQueryIterator<dynamic>(query))
     {
-        var c = cfg.GetSection("CosmosDb");
-
-        var dbId = c["DatabaseId"];
-        var inventoryContainerId = c["ContainerId"]; // ex: Inventory
-        var suppliersContainerId = c["SuppliersContainerId"]; // ex: Suppliers (opcional)
-        var partitionKeyPath = c["PartitionKeyPath"] ?? "/Type";
-
-        if (string.IsNullOrWhiteSpace(dbId) || string.IsNullOrWhiteSpace(inventoryContainerId))
-            return Results.BadRequest("CosmosDb: 'DatabaseId' e/ou 'ContainerId' não configurados no appsettings.json.");
-
-        // Se não definires SuppliersContainerId, usa o mesmo ContainerId
-        suppliersContainerId ??= inventoryContainerId;
-
-        var db = cosmos.GetDatabase(dbId);
-
-        // Garante containers (cria se não existir)
-        await db.CreateContainerIfNotExistsAsync(new ContainerProperties(inventoryContainerId, partitionKeyPath));
-        await db.CreateContainerIfNotExistsAsync(new ContainerProperties(suppliersContainerId, partitionKeyPath));
-
-        var inventory = db.GetContainer(inventoryContainerId);
-        var suppliers = db.GetContainer(suppliersContainerId);
-
-        // Executa o seed
-        await DeliInventoryManagement_1.Api.Tests.SeedTestData.RunAsync(inventory, suppliers);
-
-        return Results.Ok(new
+        while (it.HasMoreResults)
         {
-            message = "Seed completed successfully",
-            database = dbId,
-            inventoryContainer = inventoryContainerId,
-            suppliersContainer = suppliersContainerId,
-            suppliersInserted = 2,
-            productsInserted = 15
-        });
+            var resp = await it.ReadNextAsync();
+            foreach (var doc in resp)
+            {
+                string id = doc.id;
+                await container.DeleteItemAsync<dynamic>(id, new PartitionKey("Product"));
+            }
+        }
     }
-    catch (CosmosException ex)
+
+    var categories = new[]
     {
-        return Results.Problem(
-            title: "Cosmos DB error during seed",
-            detail: ex.Message,
-            statusCode: (int)ex.StatusCode
-        );
-    }
-    catch (Exception ex)
+        new { Id = "c1", Name = "Meat" },
+        new { Id = "c2", Name = "Dairy" },
+        new { Id = "c3", Name = "Beverages" },
+        new { Id = "c4", Name = "Bakery" },
+        new { Id = "c5", Name = "Vegetables" },
+        new { Id = "c6", Name = "Test" },
+    };
+
+    var productNames = new[]
     {
-        return Results.Problem(
-            title: "Unexpected error during seed",
-            detail: ex.Message,
-            statusCode: 500
-        );
+        "Ham",
+        "Chicken Breast",
+        "Ground Beef",
+        "Milk 1L",
+        "Cheddar Cheese",
+        "Butter",
+        "Natural Yogurt",
+        "Orange Juice",
+        "Mineral Water 1.5L",
+        "Coca-Cola 2L",
+        "Baguette",
+        "Whole Wheat Bread",
+        "Eggs (12 pack)",
+        "Tomatoes",
+        "Potatoes"
+    };
+
+    var rnd = new Random();
+
+    // ✅ recriar auto-1..auto-15 com nomes reais
+    for (int i = 1; i <= 15; i++)
+    {
+        var cat = categories[rnd.Next(categories.Length)];
+        var cost = Math.Round((decimal)(rnd.NextDouble() * 20 + 1), 2);
+        var price = Math.Round(cost * (decimal)(1.25 + rnd.NextDouble() * 0.75), 2);
+
+        var product = new Product
+        {
+            Id = $"auto-{i}",
+            Type = "Product",
+            Name = productNames[i - 1],
+            CategoryId = cat.Id,
+            CategoryName = cat.Name,
+            Quantity = rnd.Next(0, 200),
+            Cost = cost,
+            Price = price,
+            ReorderLevel = 5
+        };
+
+        await container.UpsertItemAsync(product, new PartitionKey(product.Type));
     }
+
+    return Results.Ok(new
+    {
+        message = "Auto Products recriados com nomes reais!",
+        total = 15,
+        database = dbId,
+        container = containerId
+    });
 })
-.WithName("SeedTestData")
+.WithName("SeedProducts15")
 .WithTags("Test");
 
+
 app.Run();
+
