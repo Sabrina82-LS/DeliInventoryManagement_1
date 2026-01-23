@@ -1,0 +1,92 @@
+name: Test & Publish Coverage (xUnit + ReportGenerator)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+  pull_request:
+
+# Avoid overlapping Pages deployments
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+# Required for GitHub Pages deploy
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+env:
+  DOTNET_VERSION: "8.0.x"
+  # Point this to your xUnit test project (csproj). Adjust as needed. Minor change
+  TEST_PROJECT: "SeedTestData"
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore -c Release
+
+      - name: Show working directory
+        run: pwd
+
+      - name: List root directory
+        run: ls -la
+
+      # xUnit tests + Coverlet data collector
+      - name: Test (xUnit) and collect coverage
+        run: >
+          dotnet test $TEST_PROJECT -c Release --no-build
+          --collect:"XPlat Code Coverage"
+          --logger "trx;LogFileName=test-results.trx"
+
+      - name: Install ReportGenerator
+        run: dotnet tool install -g dotnet-reportgenerator-globaltool
+
+      - name: Generate HTML coverage report
+        run: |
+          export PATH="$PATH:~/.dotnet/tools"
+          reportgenerator \
+            -reports:**/coverage.cobertura.xml \
+            -targetdir:coveragereport \
+            -reporttypes:Html
+
+      # Make the HTML report available as a workflow artifact on PRs too
+      - name: Upload coverage as build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: coveragereport
+
+      # Only package for Pages when merging/pushing to main
+      - name: Upload Pages artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./coveragereport
+
+  deploy:
+    # Only deploy on push to main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
