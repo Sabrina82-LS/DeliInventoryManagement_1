@@ -1,35 +1,34 @@
-﻿using Newtonsoft.Json;
+﻿using System.Text.Json.Serialization;
 
 namespace DeliInventoryManagement_1.Api.Models;
 
 public class Product
 {
-    [JsonProperty("id")]
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = default!;
 
-    [JsonProperty("Type")]
+
+    [JsonPropertyName("Type")]
     public string Type { get; set; } = "Product";
 
-    [JsonProperty("Name")]
+    [JsonPropertyName("Name")]
     public string Name { get; set; } = string.Empty;
 
-    [JsonProperty("CategoryId")]
+    [JsonPropertyName("CategoryId")]
     public string CategoryId { get; set; } = string.Empty;
 
-    [JsonProperty("CategoryName")]
+    [JsonPropertyName("CategoryName")]
     public string CategoryName { get; set; } = string.Empty;
 
-    [JsonProperty("Quantity")]
+    [JsonPropertyName("Quantity")]
     public int Quantity { get; set; }
 
-    [JsonProperty("Cost")]
+    [JsonPropertyName("Cost")]
     public decimal Cost { get; set; }
 
-    [JsonProperty("Price")]
+    [JsonPropertyName("Price")]
     public decimal Price { get; set; }
 
-    [JsonProperty("ReorderLevel")]
-    public int ReorderLevel { get; set; } = 5;   // default threshold
-
-
+    [JsonPropertyName("ReorderLevel")]
+    public int ReorderLevel { get; set; } = 5;
 }

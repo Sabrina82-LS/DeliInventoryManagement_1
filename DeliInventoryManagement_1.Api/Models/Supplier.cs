@@ -1,11 +1,13 @@
 ﻿using Newtonsoft.Json;
+using System.Text.Json.Serialization;
 
 namespace DeliInventoryManagement_1.Api.Models;
 
 public class Supplier
 {
-    [JsonProperty("id")]
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = default!;
+
 
     [JsonProperty("Type")]
     public string Type { get; set; } = "Supplier";
