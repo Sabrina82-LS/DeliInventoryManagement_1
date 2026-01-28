@@ -5,7 +5,7 @@ namespace DeliInventoryManagement_1.Api.Models;
 public class Product
 {
     [JsonPropertyName("id")]
-    public string Id { get; set; } = default!;
+    public string Id { get; set; } = string.Empty;
 
 
     [JsonPropertyName("Type")]
@@ -31,4 +31,5 @@ public class Product
 
     [JsonPropertyName("ReorderLevel")]
     public int ReorderLevel { get; set; } = 5;
+
 }

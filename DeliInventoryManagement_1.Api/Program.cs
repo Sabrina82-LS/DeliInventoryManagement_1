@@ -2,8 +2,10 @@ using DeliInventoryManagement_1.Api.Data.Seed;
 using DeliInventoryManagement_1.Api.Dtos;
 using DeliInventoryManagement_1.Api.Models;
 using DeliInventoryManagement_1.Api.Services;
-
+using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Azure.Cosmos;
+using System.Net;
+using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,12 +16,18 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 builder.Services.AddMemoryCache();
-
-// ✅ Boa prática (e evita dor de cabeça se tiver controllers no projeto)
 builder.Services.AddControllers();
+
+// ✅ JSON para Minimal APIs (Swagger/body em camelCase)
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    o.SerializerOptions.PropertyNameCaseInsensitive = true;
+});
 
 // =====================================================
 // 2) Cosmos DB - Cliente Singleton
+//    ✅ Força serializer System.Text.Json para respeitar [JsonPropertyName("id")]
 // =====================================================
 builder.Services.AddSingleton(sp =>
 {
@@ -32,13 +40,16 @@ builder.Services.AddSingleton(sp =>
         throw new InvalidOperationException(
             "CosmosDb: configure AccountEndpoint/Endpoint e AccountKey/Key no appsettings.json.");
 
+    var stjOptions = new JsonSerializerOptions
+    {
+        PropertyNameCaseInsensitive = true
+        // Não definimos camelCase aqui para não mexer em "Type"/"Quantity" etc.
+        // O que manda são seus [JsonPropertyName(...)]
+    };
+
     return new CosmosClient(endpoint, key, new CosmosClientOptions
     {
-        SerializerOptions = new CosmosSerializationOptions
-        {
-            // Mantém "Type" como "Type" (não vira "type"), compatível com PK "/Type"
-            PropertyNamingPolicy = CosmosPropertyNamingPolicy.Default
-        }
+        Serializer = new CosmosStjSerializer(stjOptions)
     });
 });
 
@@ -66,6 +77,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.MapControllers();
 
 // =====================================================
 // 6) Versionamento por URL
@@ -179,9 +191,6 @@ app.MapGet($"{salesV4}/sales", async (CosmosClient cosmos, IConfiguration cfg) =
     if (string.IsNullOrWhiteSpace(dbId))
         return Results.Problem("CosmosDb: DatabaseId não configurado.");
 
-    if (string.IsNullOrWhiteSpace(containerId))
-        containerId = "Items";
-
     var container = cosmos.GetContainer(dbId, containerId);
 
     var query = new QueryDefinition(
@@ -196,7 +205,6 @@ app.MapGet($"{salesV4}/sales", async (CosmosClient cosmos, IConfiguration cfg) =
         });
 
     var results = new List<Sales>();
-
     while (iterator.HasMoreResults)
     {
         var page = await iterator.ReadNextAsync();
@@ -207,87 +215,135 @@ app.MapGet($"{salesV4}/sales", async (CosmosClient cosmos, IConfiguration cfg) =
 })
 .WithTags("4 - Sales V4");
 
+// POST /api/v4/sales
 app.MapPost($"{salesV4}/sales", async (
-    CreateSaleRequest req,
     CosmosClient cosmos,
-    IConfiguration cfg) =>
+    IConfiguration cfg,
+    CreateSaleRequest req) =>
 {
-    try
+    var c = cfg.GetSection("CosmosDb");
+    var dbId = c["DatabaseId"] ?? c["DatabaseName"];
+    var containerId = c["ContainerId"] ?? c["ContainerName"] ?? "Items";
+
+    if (string.IsNullOrWhiteSpace(dbId))
+        return Results.Problem("CosmosDb DatabaseId/DatabaseName não configurado.");
+
+    if (string.IsNullOrWhiteSpace(containerId))
+        return Results.Problem("CosmosDb ContainerId/ContainerName não configurado.");
+
+    var container = cosmos.GetContainer(dbId!, containerId);
+
+    if (req is null)
+        return Results.BadRequest("Body is required.");
+
+    if (req.Lines == null || req.Lines.Count == 0)
+        return Results.BadRequest("Sale must contain at least one line.");
+
+    var groupedLines = req.Lines
+        .Select(l => new
+        {
+            ProductId = (l.ProductId ?? "").Trim(),
+            ProductName = l.ProductName,
+            Quantity = l.Quantity,
+            UnitPrice = l.UnitPrice
+        })
+        .Where(l => !string.IsNullOrWhiteSpace(l.ProductId) && l.Quantity > 0)
+        .GroupBy(l => l.ProductId)
+        .Select(g => new
+        {
+            ProductId = g.Key,
+            Quantity = g.Sum(x => x.Quantity),
+            ProductName = g.First().ProductName,
+            UnitPrice = g.First().UnitPrice
+        })
+        .ToList();
+
+    if (groupedLines.Count == 0)
+        return Results.BadRequest("Sale lines are invalid (missing productId or quantity <= 0).");
+
+    var productsById = new Dictionary<string, Product>(StringComparer.OrdinalIgnoreCase);
+
+    // 1) Verificar stock
+    foreach (var line in groupedLines)
     {
-        if (req is null)
-            return Results.BadRequest("Body is required.");
-
-        var productId = req.ProductId?.Trim();
-
-        if (string.IsNullOrWhiteSpace(productId))
-            return Results.BadRequest("ProductId is required.");
-
-        if (req.Quantity <= 0)
-            return Results.BadRequest("Quantity must be greater than 0.");
-
-        var c = cfg.GetSection("CosmosDb");
-        var dbId = c["DatabaseId"] ?? c["DatabaseName"];
-        var containerId = c["ContainerId"] ?? c["ContainerName"] ?? "Items";
-
-        if (string.IsNullOrWhiteSpace(dbId))
-            return Results.Problem("CosmosDb: DatabaseId não configurado.");
-
-        if (string.IsNullOrWhiteSpace(containerId))
-            containerId = "Items";
-
-        var container = cosmos.GetContainer(dbId, containerId);
-
-        // 1) Buscar o produto (PK = "Product")
-        Product product;
         try
         {
             var resp = await container.ReadItemAsync<Product>(
-                id: productId,
+                id: line.ProductId,
                 partitionKey: new PartitionKey("Product"));
 
-            product = resp.Resource;
+            var product = resp.Resource;
+            productsById[line.ProductId] = product;
+
+            if (product.Quantity < line.Quantity)
+                return Results.BadRequest(
+                    $"Not enough stock for '{product.Name}'. Available={product.Quantity}, Requested={line.Quantity}");
         }
-        catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
-            return Results.NotFound($"Product '{productId}' not found.");
+            return Results.NotFound($"Product '{line.ProductId}' not found.");
         }
-
-        if (product.Quantity < req.Quantity)
-            return Results.BadRequest($"Insufficient stock. Available: {product.Quantity}, requested: {req.Quantity}.");
-
-        // 2) Criar a venda
-        var sale = new Sales
+        catch (CosmosException ex)
         {
-            Id = Guid.NewGuid().ToString(),
-            Type = "Sale",
-            ProductId = product.Id,
-            ProductName = product.Name,
-            CategoryId = product.CategoryId,
-            Quantity = req.Quantity,
-            UnitPrice = product.Price,
-            Total = product.Price * req.Quantity,
-            CreatedAtUtc = DateTime.UtcNow
-        };
+            return Results.Problem(
+                detail: $"Cosmos error while reading product '{line.ProductId}': {ex.Message}",
+                statusCode: (int)ex.StatusCode);
+        }
+    }
 
-        // 3) Salvar a venda (PK = "Sale")
+    // 2) Montar Sale
+    var sale = new Sales
+    {
+        Id = Guid.NewGuid().ToString("N"), // ✅ vira "id" no Cosmos (Sales.cs precisa ter [JsonPropertyName("id")])
+        Type = "Sale",
+        Date = req.Date == default ? DateTime.UtcNow : req.Date,
+        CreatedAtUtc = DateTime.UtcNow,
+        Lines = groupedLines.Select(l => new SaleLine
+        {
+            ProductId = l.ProductId,
+            ProductName = string.IsNullOrWhiteSpace(l.ProductName)
+                ? productsById[l.ProductId].Name
+                : l.ProductName!,
+            Quantity = l.Quantity,
+            UnitPrice = l.UnitPrice
+        }).ToList(),
+        Total = groupedLines.Sum(l => l.Quantity * l.UnitPrice)
+    };
+
+    // 3) Criar Sale primeiro
+    try
+    {
         await container.CreateItemAsync(sale, new PartitionKey("Sale"));
-
-        return Results.Created($"{salesV4}/sales/{sale.Id}", sale);
     }
     catch (CosmosException ex)
     {
         return Results.Problem(
-            detail: ex.Message,
-            title: "CosmosException while creating sale",
+            detail: $"Cosmos error while creating sale: {ex.Message}",
             statusCode: (int)ex.StatusCode);
     }
-    catch (Exception ex)
+
+    // 4) Baixar stock (no seu Cosmos é "Quantity" com Q maiúsculo)
+    foreach (var line in groupedLines)
     {
-        return Results.Problem(
-            detail: ex.Message,
-            title: "Unhandled error while creating sale",
-            statusCode: 500);
+        try
+        {
+            await container.PatchItemAsync<dynamic>(
+                id: line.ProductId,
+                partitionKey: new PartitionKey("Product"),
+                patchOperations: new[]
+                {
+                    PatchOperation.Increment("/Quantity", -line.Quantity)
+                });
+        }
+        catch (CosmosException ex)
+        {
+            return Results.Problem(
+                detail: $"Sale '{sale.Id}' created, but failed to patch product '{line.ProductId}': {ex.Message}",
+                statusCode: (int)ex.StatusCode);
+        }
     }
+
+    return Results.Created($"{salesV4}/sales/{sale.Id}", new { saleId = sale.Id, sale.Total });
 })
 .WithTags("4 - Sales V4");
 
@@ -295,7 +351,6 @@ app.Run();
 
 // =====================================================
 // Helper: cria DB/Container e roda SeedRunner
-// (Protegido: não derruba a API se seed falhar)
 // =====================================================
 static async Task EnsureCosmosAndSeedAsync(WebApplication app)
 {
@@ -331,5 +386,41 @@ static async Task EnsureCosmosAndSeedAsync(WebApplication app)
             Console.WriteLine("⚠️ EnsureCosmosAndSeedAsync: seed falhou, mas a API vai continuar.");
             Console.WriteLine(ex);
         }
+    }
+}
+
+// =====================================================
+// Cosmos Serializer (System.Text.Json)
+// =====================================================
+sealed class CosmosStjSerializer : CosmosSerializer
+{
+    private readonly JsonSerializerOptions _options;
+
+    public CosmosStjSerializer(JsonSerializerOptions options)
+    {
+        _options = options;
+    }
+
+    public override T FromStream<T>(Stream stream)
+    {
+        if (stream is null) throw new ArgumentNullException(nameof(stream));
+
+        if (typeof(Stream).IsAssignableFrom(typeof(T)))
+            return (T)(object)stream;
+
+        using var sr = new StreamReader(stream);
+        var json = sr.ReadToEnd();
+        return JsonSerializer.Deserialize<T>(json, _options)!;
+    }
+
+    public override Stream ToStream<T>(T input)
+    {
+        var ms = new MemoryStream();
+        using var sw = new StreamWriter(ms, leaveOpen: true);
+        var json = JsonSerializer.Serialize(input, _options);
+        sw.Write(json);
+        sw.Flush();
+        ms.Position = 0;
+        return ms;
     }
 }

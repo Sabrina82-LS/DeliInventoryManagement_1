@@ -2,6 +2,6 @@
 
 public class CreateSaleRequest
 {
-    public string ProductId { get; set; } = default!;
-    public int Quantity { get; set; }
+    public DateTime Date { get; set; }
+    public List<CreateSaleLineRequest> Lines { get; set; } = new();
 }

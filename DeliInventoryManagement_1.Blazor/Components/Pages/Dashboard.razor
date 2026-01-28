@@ -91,19 +91,28 @@ else
 
         <div class="col-md-4">
             <h5>Quick Links</h5>
+
             <div class="d-grid gap-2">
-                <button class="btn btn-primary" @onclick="@(() => NavManager.NavigateTo("/products"))">
+
+                <NavLink class="btn btn-secondary" href="/products" Match="NavLinkMatch.Prefix">
                     Products
-                </button>
-                <button class="btn btn-secondary" @onclick="@(() => NavManager.NavigateTo("/stock"))">
+                </NavLink>
+                
+                <NavLink class="btn btn-secondary" href="/stock" Match="NavLinkMatch.Prefix">
                     Stock
-                </button>
-                <button class="btn btn-success" @onclick="@(() => NavManager.NavigateTo("/sales"))">
+                </NavLink>
+
+                <NavLink class="btn btn-success" href="/sales" Match="NavLinkMatch.Prefix">
                     Sales
-                </button>
-                <button class="btn btn-info" @onclick="@(() => NavManager.NavigateTo("/reports"))">
+                </NavLink>
+
+                <NavLink class="btn btn-primary" href="/restock" Match="NavLinkMatch.Prefix">
+                    Restock
+                </NavLink>
+
+                <NavLink class="btn btn-info" href="/reports" Match="NavLinkMatch.Prefix">
                     Reports
-                </button>
+                </NavLink>
             </div>
         </div>
     </div>
