@@ -1,4 +1,5 @@
 ﻿using Microsoft.Azure.Cosmos;
+using System.Net;
 
 namespace DeliInventoryManagement_1.Api.Data.Seed;
 
@@ -25,7 +26,10 @@ public static class SeedRunner
             // =====================================================
             foreach (var c in CategorySeed.GetCategories())
             {
-                EnsureType(c?.Type, c?.Id);
+                if (c is null)
+                    continue;
+
+                EnsureRequiredFields(c.Type, c.Id, "Category");
                 await container.UpsertItemAsync(c, new PartitionKey(c.Type));
             }
 
@@ -34,7 +38,10 @@ public static class SeedRunner
             // =====================================================
             foreach (var s in SupplierSeed.GetSuppliers())
             {
-                EnsureType(s?.Type, s?.Id);
+                if (s is null)
+                    continue;
+
+                EnsureRequiredFields(s.Type, s.Id, "Supplier");
                 await container.UpsertItemAsync(s, new PartitionKey(s.Type));
             }
 
@@ -43,7 +50,10 @@ public static class SeedRunner
             // =====================================================
             foreach (var p in ProductSeed.GetProducts())
             {
-                EnsureType(p?.Type, p?.Id);
+                if (p is null)
+                    continue;
+
+                EnsureRequiredFields(p.Type, p.Id, "Product");
                 await container.UpsertItemAsync(p, new PartitionKey(p.Type));
             }
 
@@ -57,36 +67,56 @@ public static class SeedRunner
         }
     }
 
-    private static void EnsureType(string? type, string? id)
+    /// <summary>
+    /// Garante campos mínimos para Cosmos:
+    /// - Type (PartitionKey /Type)
+    /// - Id   (Cosmos exige id)
+    /// </summary>
+    private static void EnsureRequiredFields(string? type, string? id, string entityName)
     {
         if (string.IsNullOrWhiteSpace(type))
             throw new InvalidOperationException(
-                $"Seed item inválido: propriedade 'Type' está vazia/nula (id='{id ?? "?"}'). " +
+                $"Seed item inválido ({entityName}): propriedade 'Type' está vazia/nula (id='{id ?? "?"}'). " +
                 "Como o PartitionKey do container é '/Type', todo item precisa ter Type preenchido.");
+
+        if (string.IsNullOrWhiteSpace(id))
+            throw new InvalidOperationException(
+                $"Seed item inválido ({entityName}): propriedade 'Id' está vazia/nula. " +
+                "Cosmos exige 'id' para criar/atualizar documentos.");
     }
 
+    // =====================================================
     // Remove produtos com prefixo específico (auto-, p, etc)
+    // =====================================================
     private static async Task DeleteProductsByPrefixAsync(Container container, string prefix)
     {
         var q = new QueryDefinition(
-                "SELECT c.id FROM c WHERE c.Type = @type AND STARTSWITH(c.id, @prefix)")
+                "SELECT VALUE c.id FROM c WHERE c.Type = @type AND STARTSWITH(c.id, @prefix)")
             .WithParameter("@type", "Product")
             .WithParameter("@prefix", prefix);
 
-        using var it = container.GetItemQueryIterator<dynamic>(q);
+        // Otimização: query já restringe Type=Product, então pode setar PartitionKey
+        using var it = container.GetItemQueryIterator<string>(
+            q,
+            requestOptions: new QueryRequestOptions
+            {
+                PartitionKey = new PartitionKey("Product")
+            });
 
         while (it.HasMoreResults)
         {
             var resp = await it.ReadNextAsync();
-            foreach (var doc in resp)
+
+            foreach (var id in resp)
             {
-                string id = doc.id;
+                if (string.IsNullOrWhiteSpace(id))
+                    continue;
 
                 try
                 {
                     await container.DeleteItemAsync<dynamic>(id, new PartitionKey("Product"));
                 }
-                catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+                catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
                 {
                     // já foi apagado, ignora
                 }
