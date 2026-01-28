@@ -27,13 +27,21 @@
 
     <div class="col-md-4 d-flex align-items-end">
         <button type="button" class="btn btn-primary me-2"
-                @onclick="async () => await LoadStockAsync()">
+                @onclick="LoadStockAsync"
+                disabled="@isLoading">
             Apply
         </button>
 
-        <button type="button" class="btn btn-outline-secondary"
-                @onclick="async () => await ResetFilters()">
+        <button type="button" class="btn btn-outline-secondary me-2"
+                @onclick="ResetFilters"
+                disabled="@isLoading">
             Clear
+        </button>
+
+        <button type="button" class="btn btn-outline-primary"
+                @onclick="RefreshAsync"
+                disabled="@isLoading">
+            Refresh
         </button>
     </div>
 </div>
@@ -65,7 +73,7 @@ else
         <tbody>
             @foreach (var p in products)
             {
-                var isLow = p.Quantity < p.ReorderLevel;
+                var isLow = p.Quantity <= p.ReorderLevel;
 
                 <tr>
                     <td class="text-muted">@p.Id</td>
@@ -81,15 +89,14 @@ else
                     <td class="text-center">
                         @if (isLow)
                         {
-                            <span title="Low stock">⚠ Low</span>
+                            <span class="badge bg-danger" title="Low stock">Low</span>
                         }
                         else
                         {
-                            <span title="OK">OK</span>
+                            <span class="badge bg-success" title="Stock OK">OK</span>
                         }
                     </td>
                 </tr>
-
             }
         </tbody>
     </table>
@@ -115,8 +122,11 @@ else
             isLoading = true;
             errorMessage = null;
 
+            // carrega categorias 1x
             categories = await DashboardService.GetAllCategoriesAsync();
-            products = await DashboardService.GetAllProductsAsync(null, null);
+
+            // sempre carregar o stock ao entrar
+            await LoadStockAsync();
         }
         catch (Exception ex)
         {
@@ -154,6 +164,11 @@ else
     {
         searchText = "";
         selectedCategoryId = "";
+        await LoadStockAsync();
+    }
+
+    private async Task RefreshAsync()
+    {
         await LoadStockAsync();
     }
 }

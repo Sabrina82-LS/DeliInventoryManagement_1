@@ -1,6 +1,9 @@
 ﻿@page "/sales"
 @using DeliInventoryManagement_1.Blazor.Models
-@inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
+@using DeliInventoryManagement_1.Blazor.Services
+@inject IDashboardService DashboardService
+@inject ISalesService SalesService
+@inject NavigationManager Nav
 @rendermode InteractiveServer
 
 <h3>Sales</h3>
@@ -24,11 +27,11 @@ else
                 <div class="col-md-3">
                     <label class="form-label">Date</label>
                     <input type="date" class="form-control" @bind="saleDate" />
-
                 </div>
+
                 <div class="col-md-5">
                     <label class="form-label">Product</label>
-                    <select class="form-select" @bind="selectedProductId">
+                    <select class="form-select" @bind="selectedProductId" disabled="@isSaving">
                         <option value="">-- Select product --</option>
                         @foreach (var p in products)
                         {
@@ -36,17 +39,19 @@ else
                         }
                     </select>
                 </div>
+
                 <div class="col-md-2">
                     <label class="form-label">Quantity</label>
-                    <input type="number" min="1" class="form-control" @bind="lineQuantity" />
+                    <input type="number" min="1" class="form-control" @bind="lineQuantity" disabled="@isSaving" />
                 </div>
+
                 <div class="col-md-2">
                     <label class="form-label">Unit Price</label>
-                    <input type="number" step="0.01" class="form-control" @bind="lineUnitPrice" />
+                    <input type="number" step="0.01" min="0.01" class="form-control" @bind="lineUnitPrice" disabled="@isSaving" />
                 </div>
             </div>
 
-            <button class="btn btn-primary" @onclick="AddLine">Add line</button>
+            <button class="btn btn-primary" @onclick="AddLine" disabled="@isSaving">Add line</button>
 
             @if (!string.IsNullOrEmpty(lineError))
             {
@@ -85,7 +90,11 @@ else
                                 <td class="text-end">@l.UnitPrice.ToString("0.00")</td>
                                 <td class="text-end">@l.Total.ToString("0.00")</td>
                                 <td class="text-end">
-                                    <button class="btn btn-link btn-sm" @onclick="() => RemoveLine(l)">Remove</button>
+                                    <button class="btn btn-link btn-sm"
+                                            @onclick="() => RemoveLine(l)"
+                                            disabled="@isSaving">
+                                        Remove
+                                    </button>
                                 </td>
                             </tr>
                         }
@@ -98,8 +107,10 @@ else
             }
         </div>
         <div class="card-footer text-end">
-            <button class="btn btn-success" @onclick="SaveSale" disabled="@(lines.Count == 0)">
-                Save Sale
+            <button class="btn btn-success"
+                    @onclick="SaveSaleAsync"
+                    disabled="@(lines.Count == 0 || isSaving)">
+                @(isSaving ? "Saving..." : "Save Sale")
             </button>
         </div>
     </div>
@@ -108,23 +119,30 @@ else
     {
         <div class="alert alert-info">@saveMessage</div>
     }
+
+    @if (!string.IsNullOrEmpty(saveError))
+    {
+        <div class="alert alert-danger">@saveError</div>
+    }
 }
 
 @code {
-    bool isLoading;
-    string? errorMessage;
+    private bool isLoading;
+    private bool isSaving;
+    private string? errorMessage;
 
-    List<ProductDto> products = new();
+    private List<ProductDto> products = new();
 
-    DateTime saleDate = DateTime.Today;
-    string? selectedProductId;
-    int lineQuantity = 1;
-    decimal lineUnitPrice = 0m;
-    string? lineError;
+    private DateTime saleDate = DateTime.Today;
+    private string selectedProductId = "";
+    private int lineQuantity = 1;
+    private decimal lineUnitPrice = 0m;
+    private string? lineError;
 
-    string? saveMessage;
+    private string? saveMessage;
+    private string? saveError;
 
-    class SaleLineVm
+    private sealed class SaleLineVm
     {
         public string ProductId { get; set; } = string.Empty;
         public string ProductName { get; set; } = string.Empty;
@@ -133,13 +151,20 @@ else
         public decimal Total => Quantity * UnitPrice;
     }
 
-    List<SaleLineVm> lines = new();
+    private readonly List<SaleLineVm> lines = new();
 
     protected override async Task OnInitializedAsync()
+    {
+        await LoadProductsAsync();
+    }
+
+    private async Task LoadProductsAsync()
     {
         try
         {
             isLoading = true;
+            errorMessage = null;
+
             products = await DashboardService.GetAllProductsAsync(null, null);
         }
         catch (Exception ex)
@@ -156,14 +181,20 @@ else
     {
         lineError = null;
         saveMessage = null;
+        saveError = null;
 
-        if (string.IsNullOrEmpty(selectedProductId))
+        if (string.IsNullOrWhiteSpace(selectedProductId))
         {
             lineError = "Select a product.";
             return;
         }
 
-        var product = products.First(p => p.Id == selectedProductId);
+        var product = products.FirstOrDefault(p => p.Id == selectedProductId);
+        if (product is null)
+        {
+            lineError = "Selected product not found. Reload the page and try again.";
+            return;
+        }
 
         if (lineQuantity <= 0)
         {
@@ -173,11 +204,12 @@ else
 
         if (lineUnitPrice <= 0)
         {
-            // default to some value (you could load from Product.Price if you add it to ProductDto)
-            lineUnitPrice = 1m;
+            lineError = "Unit Price must be > 0.";
+            return;
         }
 
-        // TODO: check available stock here if you want
+        // (Opcional) validação local de stock, se ProductDto tiver Quantity:
+        // if (product.Quantity < lineQuantity) { lineError = $"Not enough stock. Available={product.Quantity}"; return; }
 
         lines.Add(new SaleLineVm
         {
@@ -187,24 +219,69 @@ else
             UnitPrice = lineUnitPrice
         });
 
-        // reset
+        // reset inputs
+        selectedProductId = "";
         lineQuantity = 1;
         lineUnitPrice = 0m;
     }
 
     private void RemoveLine(SaleLineVm line)
     {
+        saveMessage = null;
+        saveError = null;
         lines.Remove(line);
     }
 
-    private async Task SaveSale()
+    private async Task SaveSaleAsync()
     {
-        // For now just show message; later you can POST to /api/v1/sales
-        saveMessage = $"Sale saved locally with {lines.Count} lines, total {lines.Sum(l => l.Total):0.00}. " +
-                      "TODO: send to API and reduce stock.";
-        await Task.CompletedTask;
+        saveMessage = null;
+        saveError = null;
+        lineError = null;
 
-        // Clear lines
-        lines.Clear();
+        if (lines.Count == 0)
+        {
+            saveError = "Add at least one line before saving.";
+            return;
+        }
+
+        isSaving = true;
+
+        try
+        {
+            var req = new CreateSaleRequest
+            {
+                Date = saleDate,
+                Lines = lines.Select(l => new CreateSaleLineRequest
+                {
+                    ProductId = l.ProductId,
+                    ProductName = l.ProductName,
+                    Quantity = l.Quantity,
+                    UnitPrice = l.UnitPrice
+                }).ToList()
+            };
+
+            var result = await SalesService.CreateSaleAsync(req);
+
+            // ✅ Atualiza mensagem
+            saveMessage = $"✅ Sale saved in API. Id: {result.SaleId} | Total: {result.Total:0.00}";
+
+            // ✅ limpa após salvar
+            lines.Clear();
+
+            // ✅ OPÇÃO 1: recarrega produtos do servidor (já vem com Quantity atualizado)
+            await LoadProductsAsync();
+
+            // ✅ OPÇÃO 1 (extra): ir direto para Stock já atualizado
+            // Se não quiser navegar automaticamente, basta comentar a linha abaixo.
+            Nav.NavigateTo("/stock");
+        }
+        catch (Exception ex)
+        {
+            saveError = $"❌ Failed to save sale: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
     }
 }

@@ -26,6 +26,23 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 });
 
 // =====================================================
+// ✅ PASSO 2 — CORS (Blazor -> API)
+// =====================================================
+// Ajuste a porta se seu Blazor não for 7081.
+const string blazorHttps = "https://localhost:7081";
+const string blazorHttp = "http://localhost:7081";
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("BlazorCors", policy =>
+        policy
+            .WithOrigins(blazorHttps, blazorHttp)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+    );
+});
+
+// =====================================================
 // 2) Cosmos DB - Cliente Singleton
 //    ✅ Força serializer System.Text.Json para respeitar [JsonPropertyName("id")]
 // =====================================================
@@ -43,8 +60,7 @@ builder.Services.AddSingleton(sp =>
     var stjOptions = new JsonSerializerOptions
     {
         PropertyNameCaseInsensitive = true
-        // Não definimos camelCase aqui para não mexer em "Type"/"Quantity" etc.
-        // O que manda são seus [JsonPropertyName(...)]
+        // Mantemos sem camelCase aqui; quem manda são os [JsonPropertyName(...)]
     };
 
     return new CosmosClient(endpoint, key, new CosmosClientOptions
@@ -77,6 +93,13 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// ✅ CORS precisa vir ANTES dos endpoints
+app.UseCors("BlazorCors");
+
+// (opcional, mas recomendado com controllers)
+app.UseAuthorization();
+
 app.MapControllers();
 
 // =====================================================
@@ -294,7 +317,7 @@ app.MapPost($"{salesV4}/sales", async (
     // 2) Montar Sale
     var sale = new Sales
     {
-        Id = Guid.NewGuid().ToString("N"), // ✅ vira "id" no Cosmos (Sales.cs precisa ter [JsonPropertyName("id")])
+        Id = Guid.NewGuid().ToString("N"),
         Type = "Sale",
         Date = req.Date == default ? DateTime.UtcNow : req.Date,
         CreatedAtUtc = DateTime.UtcNow,
