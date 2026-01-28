@@ -370,7 +370,144 @@ app.MapPost($"{salesV4}/sales", async (
 })
 .WithTags("4 - Sales V4");
 
+
+// =====================================================
+// ✅ ENDPOINT POST /restocks
+//    - Cria um documento Restock (Type = "Restock")
+//    - Aumenta o stock do(s) Product(s) usando PATCH Increment (+)
+// =====================================================
+app.MapPost("/api/restocks", async (
+    CosmosClient cosmos,
+    IConfiguration cfg,
+    CreateRestockRequest req) =>
+{
+    var c = cfg.GetSection("CosmosDb");
+    var dbId = c["DatabaseId"] ?? c["DatabaseName"];
+    var containerId = c["ContainerId"] ?? c["ContainerName"] ?? "Items";
+
+    if (string.IsNullOrWhiteSpace(dbId))
+        return Results.Problem("CosmosDb DatabaseId/DatabaseName não configurado.");
+
+    if (string.IsNullOrWhiteSpace(containerId))
+        return Results.Problem("CosmosDb ContainerId/ContainerName não configurado.");
+
+    var container = cosmos.GetContainer(dbId!, containerId);
+
+    if (req is null)
+        return Results.BadRequest("Body is required.");
+
+    if (req.Lines == null || req.Lines.Count == 0)
+        return Results.BadRequest("Restock must contain at least one line.");
+
+    // 1) Normaliza e agrupa linhas por ProductId (evita duplicados)
+    var groupedLines = req.Lines
+        .Select(l => new
+        {
+            ProductId = (l.ProductId ?? "").Trim(),
+            ProductName = l.ProductName,
+            Quantity = l.Quantity,
+            CostPerUnit = l.CostPerUnit
+        })
+        .Where(l => !string.IsNullOrWhiteSpace(l.ProductId) && l.Quantity > 0)
+        .GroupBy(l => l.ProductId)
+        .Select(g => new
+        {
+            ProductId = g.Key,
+            Quantity = g.Sum(x => x.Quantity),
+            ProductName = g.First().ProductName,
+            CostPerUnit = g.First().CostPerUnit
+        })
+        .ToList();
+
+    if (groupedLines.Count == 0)
+        return Results.BadRequest("Restock lines are invalid (missing productId or quantity <= 0).");
+
+    // 2) (Opcional, mas recomendado) validar se o produto existe
+    var productsById = new Dictionary<string, Product>(StringComparer.OrdinalIgnoreCase);
+
+    foreach (var line in groupedLines)
+    {
+        try
+        {
+            var resp = await container.ReadItemAsync<Product>(
+                id: line.ProductId,
+                partitionKey: new PartitionKey("Product"));
+
+            productsById[line.ProductId] = resp.Resource;
+        }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return Results.NotFound($"Product '{line.ProductId}' not found.");
+        }
+        catch (CosmosException ex)
+        {
+            return Results.Problem(
+                detail: $"Cosmos error while reading product '{line.ProductId}': {ex.Message}",
+                statusCode: (int)ex.StatusCode);
+        }
+    }
+
+    // 3) Montar Restock
+    var restock = new Restock
+    {
+        Id = Guid.NewGuid().ToString("N"),
+        Type = "Restock",
+        Date = req.Date == default ? DateTime.UtcNow : req.Date,
+        SupplierId = req.SupplierId,
+        SupplierName = req.SupplierName,
+        CreatedAtUtc = DateTime.UtcNow,
+        Lines = groupedLines.Select(l => new RestockLine
+        {
+            ProductId = l.ProductId,
+            ProductName = string.IsNullOrWhiteSpace(l.ProductName)
+                ? productsById[l.ProductId].Name
+                : l.ProductName!,
+            Quantity = l.Quantity,
+            CostPerUnit = l.CostPerUnit
+        }).ToList(),
+    };
+
+    restock.TotalCost = restock.Lines.Sum(l => l.Quantity * l.CostPerUnit);
+
+    // 4) Criar Restock primeiro
+    try
+    {
+        await container.CreateItemAsync(restock, new PartitionKey("Restock"));
+    }
+    catch (CosmosException ex)
+    {
+        return Results.Problem(
+            detail: $"Cosmos error while creating restock: {ex.Message}",
+            statusCode: (int)ex.StatusCode);
+    }
+
+    // 5) Subir stock com PATCH Increment (+Quantity)
+    foreach (var line in groupedLines)
+    {
+        try
+        {
+            await container.PatchItemAsync<dynamic>(
+                id: line.ProductId,
+                partitionKey: new PartitionKey("Product"),
+                patchOperations: new[]
+                {
+                    PatchOperation.Increment("/Quantity", line.Quantity)
+                });
+        }
+        catch (CosmosException ex)
+        {
+            return Results.Problem(
+                detail: $"Restock '{restock.Id}' created, but failed to patch product '{line.ProductId}': {ex.Message}",
+                statusCode: (int)ex.StatusCode);
+        }
+    }
+
+    return Results.Created($"/api/restocks/{restock.Id}", new { restockId = restock.Id, restock.TotalCost });
+})
+.WithTags("5 - Restocks");
+
 app.Run();
+
 
 // =====================================================
 // Helper: cria DB/Container e roda SeedRunner

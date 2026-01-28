@@ -1,6 +1,11 @@
 ﻿@page "/restocks"
+@rendermode InteractiveServer
 @using DeliInventoryManagement_1.Blazor.Models
-@inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
+@using DeliInventoryManagement_1.Blazor.Services
+
+@inject IRestockService RestockService
+@inject IDashboardService DashboardService
+
 
 <h3>Restocks</h3>
 
@@ -14,28 +19,36 @@ else if (!string.IsNullOrEmpty(errorMessage))
 }
 else
 {
+    <!-- ============================
+         CARD: NEW RESTOCK (HEADER)
+         ============================ -->
     <div class="card mb-3">
         <div class="card-header">New Restock</div>
+
         <div class="card-body">
             <div class="row mb-3">
                 <div class="col-md-3">
                     <label class="form-label">Date</label>
                     <input type="date" class="form-control" @bind="restockDate" />
-
                 </div>
-                <div class="col-md-4">
+
+                <div class="col-md-5">
                     <label class="form-label">Supplier</label>
                     <select class="form-select" @bind="selectedSupplierId">
                         <option value="">-- Select supplier --</option>
                         @foreach (var s in suppliers)
                         {
                             <option value="@s.Id">@s.Id - @s.Name</option>
-
                         }
                     </select>
                 </div>
             </div>
-                
+
+            <hr />
+
+            <!-- ============================
+                 ADD LINE
+                 ============================ -->
             <div class="row mb-3">
                 <div class="col-md-5">
                     <label class="form-label">Product</label>
@@ -44,39 +57,48 @@ else
                         @foreach (var p in products)
                         {
                             <option value="@p.Id">@p.Id - @p.Name (@p.CategoryName)</option>
-
                         }
                     </select>
                 </div>
+
                 <div class="col-md-2">
                     <label class="form-label">Quantity</label>
                     <input type="number" min="1" class="form-control" @bind="lineQuantity" />
                 </div>
+
                 <div class="col-md-2">
                     <label class="form-label">Cost / unit</label>
-                    <input type="number" step="0.01" class="form-control" @bind="lineUnitCost" />
+                    <input type="number" step="0.01" min="0" class="form-control" @bind="lineUnitCost" />
+                </div>
+
+                <div class="col-md-3 d-flex align-items-end">
+                    <button class="btn btn-primary w-100" @onclick="AddLine">
+                        Add line
+                    </button>
                 </div>
             </div>
 
-            <button class="btn btn-primary" @onclick="AddLine">Add line</button>
-
             @if (!string.IsNullOrEmpty(lineError))
             {
-                <div class="text-danger mt-2">@lineError</div>
+                <div class="alert alert-warning mb-0">@lineError</div>
             }
         </div>
     </div>
 
+    <!-- ============================
+         CARD: RESTOCK LINES
+         ============================ -->
     <div class="card mb-3">
         <div class="card-header">Restock Lines</div>
+
         <div class="card-body">
             @if (lines.Count == 0)
             {
-                <p>No lines added yet.</p>
+                <p class="mb-0">No lines added yet.</p>
             }
             else
             {
-                <table class="table table-sm">
+                <table class="table table-sm align-middle">
                     <thead>
                         <tr>
                             <th>Product</th>
@@ -95,7 +117,9 @@ else
                                 <td class="text-end">@l.UnitCost.ToString("0.00")</td>
                                 <td class="text-end">@l.Total.ToString("0.00")</td>
                                 <td class="text-end">
-                                    <button class="btn btn-link btn-sm" @onclick="() => RemoveLine(l)">Remove</button>
+                                    <button class="btn btn-link btn-sm" @onclick="() => RemoveLine(l)">
+                                        Remove
+                                    </button>
                                 </td>
                             </tr>
                         }
@@ -103,40 +127,68 @@ else
                 </table>
 
                 <div class="text-end fw-bold">
-                    Total cost: @lines.Sum(l => l.Total).ToString("0.00")
+                    Total cost: @totalCost.ToString("0.00")
                 </div>
             }
         </div>
+
         <div class="card-footer text-end">
-            <button class="btn btn-success" @onclick="SaveRestock" disabled="@(lines.Count == 0 || string.IsNullOrEmpty(selectedSupplierId))">
-                Save Restock
+            <button class="btn btn-success"
+                    @onclick="SaveRestockAsync"
+                    disabled="@(!CanSave || isSaving)">
+                @(isSaving ? "Saving..." : "Save Restock")
             </button>
         </div>
     </div>
 
-    @if (!string.IsNullOrEmpty(saveMessage))
+    @if (!string.IsNullOrEmpty(successMessage))
     {
-        <div class="alert alert-info">@saveMessage</div>
+        <div class="alert alert-success">@successMessage</div>
+    }
+
+    @if (!string.IsNullOrEmpty(saveError))
+    {
+        <div class="alert alert-danger">@saveError</div>
     }
 }
 
 @code {
-    bool isLoading;
-    string? errorMessage;
+    // ============================
+    // STATE
+    // ============================
+    private bool isLoading;
+    private bool isSaving;
 
-    List<ProductDto> products = new();
-    List<SupplierDto> suppliers = new();
+    private string? errorMessage;   // erro ao carregar dados
+    private string? lineError;      // erro ao adicionar linha
+    private string? successMessage; // sucesso ao salvar
+    private string? saveError;      // erro ao salvar
 
-    DateTime restockDate = DateTime.Today;
-    string? selectedSupplierId;
-    string? selectedProductId;
-    int lineQuantity = 1;
-    decimal lineUnitCost = 0m;
-    string? lineError;
-    string? saveMessage;
-   
+    private List<ProductDto> products = new();
+    private List<SupplierDto> suppliers = new();
 
-    class RestockLineVm
+    // Header (Restock)
+    private DateTime restockDate = DateTime.Today;
+    private string selectedSupplierId = "";
+
+    // New line inputs
+    private string selectedProductId = "";
+    private int lineQuantity = 1;
+    private decimal lineUnitCost = 0m;
+
+    // Lines VM
+    private List<RestockLineVm> lines = new();
+
+    private decimal totalCost => lines.Sum(l => l.Total);
+
+    private bool CanSave =>
+        !string.IsNullOrWhiteSpace(selectedSupplierId) &&
+        lines.Count > 0;
+
+    // ============================
+    // VIEWMODEL
+    // ============================
+    private sealed class RestockLineVm
     {
         public string ProductId { get; set; } = string.Empty;
         public string ProductName { get; set; } = string.Empty;
@@ -145,14 +197,17 @@ else
         public decimal Total => Quantity * UnitCost;
     }
 
-
-    List<RestockLineVm> lines = new();
-
+    // ============================
+    // INIT
+    // ============================
     protected override async Task OnInitializedAsync()
     {
         try
         {
             isLoading = true;
+            errorMessage = null;
+
+            // Carrega dados para os selects
             products = await DashboardService.GetAllProductsAsync(null, null);
             suppliers = await DashboardService.GetAllSuppliersAsync();
         }
@@ -166,12 +221,22 @@ else
         }
     }
 
+    // ============================
+    // ADD / REMOVE LINE
+    // ============================
     private void AddLine()
     {
         lineError = null;
-        saveMessage = null;
+        successMessage = null;
+        saveError = null;
 
-        if (string.IsNullOrEmpty(selectedProductId))
+        if (string.IsNullOrWhiteSpace(selectedSupplierId))
+        {
+            lineError = "Select a supplier first.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(selectedProductId))
         {
             lineError = "Select a product.";
             return;
@@ -185,19 +250,37 @@ else
 
         if (lineUnitCost <= 0)
         {
-            lineUnitCost = 1m;
+            lineError = "Cost / unit must be > 0.";
+            return;
         }
 
-        var product = products.First(p => p.Id == selectedProductId);
-
-        lines.Add(new RestockLineVm
+        var product = products.FirstOrDefault(p => p.Id == selectedProductId);
+        if (product is null)
         {
-            ProductId = product.Id,
-            ProductName = product.Name,
-            Quantity = lineQuantity,
-            UnitCost = lineUnitCost
-        });
+            lineError = "Selected product not found.";
+            return;
+        }
 
+        // ✅ Se já existe a mesma linha, soma quantidade (evita duplicar produto)
+        var existing = lines.FirstOrDefault(l => l.ProductId == product.Id);
+        if (existing is not null)
+        {
+            existing.Quantity += lineQuantity;
+            existing.UnitCost = lineUnitCost; // mantém último custo informado (simples)
+        }
+        else
+        {
+            lines.Add(new RestockLineVm
+            {
+                ProductId = product.Id,
+                ProductName = product.Name,
+                Quantity = lineQuantity,
+                UnitCost = lineUnitCost
+            });
+        }
+
+        // Reset inputs
+        selectedProductId = "";
         lineQuantity = 1;
         lineUnitCost = 0m;
     }
@@ -207,13 +290,67 @@ else
         lines.Remove(line);
     }
 
-    private async Task SaveRestock()
+    // ============================
+    // SAVE (CALL API)
+    // ============================
+    private async Task SaveRestockAsync()
     {
-        saveMessage = $"Restock saved locally with {lines.Count} lines, total cost {lines.Sum(l => l.Total):0.00}. " +
-                      "TODO: send to API and increase stock.";
+        lineError = null;
+        successMessage = null;
+        saveError = null;
 
-        // later: call POST /api/v1/restocks
-        await Task.CompletedTask;
-        lines.Clear();
+        if (!CanSave)
+        {
+            saveError = "Please select a supplier and add at least one line.";
+            return;
+        }
+
+        var supplier = suppliers.FirstOrDefault(s => s.Id == selectedSupplierId);
+        if (supplier is null)
+        {
+            saveError = "Selected supplier not found.";
+            return;
+        }
+
+        // ✅ Monta o request para a API (POST /api/restocks)
+        var request = new CreateRestockRequest
+        {
+            Date = restockDate,
+            SupplierId = supplier.Id,
+            SupplierName = supplier.Name,
+            Lines = lines.Select(l => new CreateRestockLineRequest
+            {
+                ProductId = l.ProductId,
+                ProductName = l.ProductName,
+                Quantity = l.Quantity,
+                CostPerUnit = l.UnitCost
+            }).ToList()
+        };
+
+        try
+        {
+            isSaving = true;
+
+            // ✅ Chama a API (ela salva Restock e aumenta o stock no Cosmos)
+            await RestockService.CreateAsync(request);
+
+            successMessage = $"Restock saved ✔️ {lines.Count} line(s) - Total {totalCost:0.00}. Stock updated in Cosmos.";
+
+            // Reset form
+            restockDate = DateTime.Today;
+            selectedSupplierId = "";
+            selectedProductId = "";
+            lineQuantity = 1;
+            lineUnitCost = 0m;
+            lines.Clear();
+        }
+        catch (Exception ex)
+        {
+            saveError = $"Error saving restock: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
     }
 }
