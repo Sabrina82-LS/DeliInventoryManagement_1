@@ -19,8 +19,6 @@ permissions:
 
 env:
   DOTNET_VERSION: "8.0.x"
-  # Point this to your xUnit test project (csproj). Adjust as needed. Minor change
-  TEST_PROJECT: "SeedTestData"
 
 jobs:
   build-and-test:
@@ -34,25 +32,33 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
+      # =====================================================
+      # Restore / Build (Solution-wide)
+      # =====================================================
       - name: Restore
         run: dotnet restore
 
       - name: Build
         run: dotnet build --no-restore -c Release
 
-      - name: Show working directory
-        run: pwd
-
-      - name: List root directory
+      # (Opcional) Debug útil quando algo falha
+      - name: List repository root
         run: ls -la
 
-      # xUnit tests + Coverlet data collector
+      # =====================================================
+      # Test (Solution-wide) + coverage (Coverlet collector)
+      # - Roda TODOS os projetos de teste encontrados
+      # - Gera coverage.cobertura.xml para o ReportGenerator
+      # =====================================================
       - name: Test (xUnit) and collect coverage
         run: >
-          dotnet test $TEST_PROJECT -c Release --no-build
+          dotnet test -c Release --no-build
           --collect:"XPlat Code Coverage"
           --logger "trx;LogFileName=test-results.trx"
 
+      # =====================================================
+      # Coverage report (HTML)
+      # =====================================================
       - name: Install ReportGenerator
         run: dotnet tool install -g dotnet-reportgenerator-globaltool
 
@@ -71,7 +77,7 @@ jobs:
           name: coverage-html
           path: coveragereport
 
-      # Only package for Pages when merging/pushing to main
+      # Only package for Pages when merging/pushing to master
       - name: Upload Pages artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/master'
         uses: actions/upload-pages-artifact@v3
@@ -79,7 +85,7 @@ jobs:
           path: ./coveragereport
 
   deploy:
-    # Only deploy on push to main
+    # Only deploy on push to master
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     needs: build-and-test
     runs-on: ubuntu-latest
