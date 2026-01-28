@@ -28,7 +28,6 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 // =====================================================
 // ✅ PASSO 2 — CORS (Blazor -> API)
 // =====================================================
-// Ajuste a porta se seu Blazor não for 7081.
 const string blazorHttps = "https://localhost:7081";
 const string blazorHttp = "http://localhost:7081";
 
@@ -60,7 +59,6 @@ builder.Services.AddSingleton(sp =>
     var stjOptions = new JsonSerializerOptions
     {
         PropertyNameCaseInsensitive = true
-        // Mantemos sem camelCase aqui; quem manda são os [JsonPropertyName(...)]
     };
 
     return new CosmosClient(endpoint, key, new CosmosClientOptions
@@ -93,13 +91,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-
-// ✅ CORS precisa vir ANTES dos endpoints
 app.UseCors("BlazorCors");
-
-// (opcional, mas recomendado com controllers)
 app.UseAuthorization();
-
 app.MapControllers();
 
 // =====================================================
@@ -238,7 +231,8 @@ app.MapGet($"{salesV4}/sales", async (CosmosClient cosmos, IConfiguration cfg) =
 })
 .WithTags("4 - Sales V4");
 
-// POST /api/v4/sales
+
+// ✅ POST /api/v4/sales (CRÍTICO corrigido)
 app.MapPost($"{salesV4}/sales", async (
     CosmosClient cosmos,
     IConfiguration cfg,
@@ -262,6 +256,7 @@ app.MapPost($"{salesV4}/sales", async (
     if (req.Lines == null || req.Lines.Count == 0)
         return Results.BadRequest("Sale must contain at least one line.");
 
+    // 1) Normaliza e agrupa linhas por ProductId (evita duplicados)
     var groupedLines = req.Lines
         .Select(l => new
         {
@@ -284,23 +279,29 @@ app.MapPost($"{salesV4}/sales", async (
     if (groupedLines.Count == 0)
         return Results.BadRequest("Sale lines are invalid (missing productId or quantity <= 0).");
 
-    var productsById = new Dictionary<string, Product>(StringComparer.OrdinalIgnoreCase);
+    // 2) Lê produtos (com ETag) e valida estoque
+    //    Também decide o preço FINAL (backend): preferir Product.Price.
+    var productsById = new Dictionary<string, (Product product, string etag)>(StringComparer.OrdinalIgnoreCase);
 
-    // 1) Verificar stock
     foreach (var line in groupedLines)
     {
         try
         {
-            var resp = await container.ReadItemAsync<Product>(
+            var read = await container.ReadItemAsync<Product>(
                 id: line.ProductId,
                 partitionKey: new PartitionKey("Product"));
 
-            var product = resp.Resource;
-            productsById[line.ProductId] = product;
+            var product = read.Resource;
+            var etag = read.ETag;
 
+            // ✅ Estoque nunca negativo
             if (product.Quantity < line.Quantity)
+            {
                 return Results.BadRequest(
                     $"Not enough stock for '{product.Name}'. Available={product.Quantity}, Requested={line.Quantity}");
+            }
+
+            productsById[line.ProductId] = (product, etag);
         }
         catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
         {
@@ -314,67 +315,81 @@ app.MapPost($"{salesV4}/sales", async (
         }
     }
 
-    // 2) Montar Sale
-    var sale = new Sales
-    {
-        Id = Guid.NewGuid().ToString("N"),
-        Type = "Sale",
-        Date = req.Date == default ? DateTime.UtcNow : req.Date,
-        CreatedAtUtc = DateTime.UtcNow,
-        Lines = groupedLines.Select(l => new SaleLine
-        {
-            ProductId = l.ProductId,
-            ProductName = string.IsNullOrWhiteSpace(l.ProductName)
-                ? productsById[l.ProductId].Name
-                : l.ProductName!,
-            Quantity = l.Quantity,
-            UnitPrice = l.UnitPrice
-        }).ToList(),
-        Total = groupedLines.Sum(l => l.Quantity * l.UnitPrice)
-    };
+    // 3) Baixa estoque primeiro com concorrência (ETag + retry)
+    //    Se algo der errado depois, vamos COMPENSAR (devolver estoque).
+    var applied = new List<(string productId, int qtyApplied)>();
 
-    // 3) Criar Sale primeiro
     try
     {
+        foreach (var line in groupedLines)
+        {
+            var ok = await DecrementStockWithRetryAsync(
+                container: container,
+                productId: line.ProductId,
+                qtyToDecrement: line.Quantity,
+                maxRetries: 5);
+
+            if (!ok)
+            {
+                // conflito/concorrência alta ou produto mudou demais
+                await CompensateStockAsync(container, applied);
+                return Results.StatusCode(409);
+            }
+
+            applied.Add((line.ProductId, line.Quantity));
+        }
+
+        // 4) Monta Sale com Total calculado no BACKEND
+        var sale = new Sales
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Type = "Sale",
+            Date = req.Date == default ? DateTime.UtcNow : req.Date,
+            CreatedAtUtc = DateTime.UtcNow,
+            Lines = groupedLines.Select(l =>
+            {
+                var (p, _) = productsById[l.ProductId];
+
+                // ✅ backend decide o preço (mais confiável)
+                var finalUnitPrice = p.Price > 0 ? p.Price : l.UnitPrice;
+
+                return new SaleLine
+                {
+                    ProductId = l.ProductId,
+                    ProductName = string.IsNullOrWhiteSpace(l.ProductName) ? p.Name : l.ProductName!,
+                    Quantity = l.Quantity,
+                    UnitPrice = finalUnitPrice
+                };
+            }).ToList(),
+        };
+
+        sale.Total = sale.Lines.Sum(x => x.UnitPrice * x.Quantity);
+
+        // 5) Agora cria a Sale
         await container.CreateItemAsync(sale, new PartitionKey("Sale"));
+
+        return Results.Created($"{salesV4}/sales/{sale.Id}", new { saleId = sale.Id, sale.Total });
     }
     catch (CosmosException ex)
     {
+        // ✅ Se falhar criar sale (ou qualquer erro no meio), devolve estoque
+        await CompensateStockAsync(container, applied);
+
         return Results.Problem(
-            detail: $"Cosmos error while creating sale: {ex.Message}",
+            detail: $"Cosmos error while creating sale / updating stock: {ex.Message}",
             statusCode: (int)ex.StatusCode);
     }
-
-    // 4) Baixar stock (no seu Cosmos é "Quantity" com Q maiúsculo)
-    foreach (var line in groupedLines)
+    catch (Exception ex)
     {
-        try
-        {
-            await container.PatchItemAsync<dynamic>(
-                id: line.ProductId,
-                partitionKey: new PartitionKey("Product"),
-                patchOperations: new[]
-                {
-                    PatchOperation.Increment("/Quantity", -line.Quantity)
-                });
-        }
-        catch (CosmosException ex)
-        {
-            return Results.Problem(
-                detail: $"Sale '{sale.Id}' created, but failed to patch product '{line.ProductId}': {ex.Message}",
-                statusCode: (int)ex.StatusCode);
-        }
+        await CompensateStockAsync(container, applied);
+        return Results.Problem(detail: ex.Message, statusCode: 500);
     }
-
-    return Results.Created($"{salesV4}/sales/{sale.Id}", new { saleId = sale.Id, sale.Total });
 })
 .WithTags("4 - Sales V4");
 
 
 // =====================================================
-// ✅ ENDPOINT POST /restocks
-//    - Cria um documento Restock (Type = "Restock")
-//    - Aumenta o stock do(s) Product(s) usando PATCH Increment (+)
+// ✅ ENDPOINT POST /restocks (mantido como você já tinha)
 // =====================================================
 app.MapPost("/api/restocks", async (
     CosmosClient cosmos,
@@ -399,7 +414,6 @@ app.MapPost("/api/restocks", async (
     if (req.Lines == null || req.Lines.Count == 0)
         return Results.BadRequest("Restock must contain at least one line.");
 
-    // 1) Normaliza e agrupa linhas por ProductId (evita duplicados)
     var groupedLines = req.Lines
         .Select(l => new
         {
@@ -422,7 +436,6 @@ app.MapPost("/api/restocks", async (
     if (groupedLines.Count == 0)
         return Results.BadRequest("Restock lines are invalid (missing productId or quantity <= 0).");
 
-    // 2) (Opcional, mas recomendado) validar se o produto existe
     var productsById = new Dictionary<string, Product>(StringComparer.OrdinalIgnoreCase);
 
     foreach (var line in groupedLines)
@@ -447,7 +460,6 @@ app.MapPost("/api/restocks", async (
         }
     }
 
-    // 3) Montar Restock
     var restock = new Restock
     {
         Id = Guid.NewGuid().ToString("N"),
@@ -469,7 +481,6 @@ app.MapPost("/api/restocks", async (
 
     restock.TotalCost = restock.Lines.Sum(l => l.Quantity * l.CostPerUnit);
 
-    // 4) Criar Restock primeiro
     try
     {
         await container.CreateItemAsync(restock, new PartitionKey("Restock"));
@@ -481,7 +492,6 @@ app.MapPost("/api/restocks", async (
             statusCode: (int)ex.StatusCode);
     }
 
-    // 5) Subir stock com PATCH Increment (+Quantity)
     foreach (var line in groupedLines)
     {
         try
@@ -489,10 +499,7 @@ app.MapPost("/api/restocks", async (
             await container.PatchItemAsync<dynamic>(
                 id: line.ProductId,
                 partitionKey: new PartitionKey("Product"),
-                patchOperations: new[]
-                {
-                    PatchOperation.Increment("/Quantity", line.Quantity)
-                });
+                patchOperations: new[] { PatchOperation.Increment("/Quantity", line.Quantity) });
         }
         catch (CosmosException ex)
         {
@@ -507,6 +514,100 @@ app.MapPost("/api/restocks", async (
 .WithTags("5 - Restocks");
 
 app.Run();
+
+
+// =====================================================
+// Helpers
+// =====================================================
+
+static async Task<bool> DecrementStockWithRetryAsync(
+    Container container,
+    string productId,
+    int qtyToDecrement,
+    int maxRetries)
+{
+    // Usa optimistic concurrency:
+    // 1) Read Product + ETag
+    // 2) Valida estoque
+    // 3) Patch decrement com IfMatchEtag
+    for (int attempt = 1; attempt <= maxRetries; attempt++)
+    {
+        ItemResponse<Product> read;
+        try
+        {
+            read = await container.ReadItemAsync<Product>(productId, new PartitionKey("Product"));
+        }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            return false;
+        }
+
+        var product = read.Resource;
+        var etag = read.ETag;
+
+        if (product.Quantity < qtyToDecrement)
+            return false; // insuficiente (nunca negativo)
+
+        try
+        {
+            await container.PatchItemAsync<dynamic>(
+                id: productId,
+                partitionKey: new PartitionKey("Product"),
+                patchOperations: new[] { PatchOperation.Increment("/Quantity", -qtyToDecrement) },
+                requestOptions: new PatchItemRequestOptions
+                {
+                    IfMatchEtag = etag
+                });
+
+            return true; // sucesso
+        }
+        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed)
+        {
+            // ETag mudou (concorrência). Tenta de novo.
+            continue;
+        }
+    }
+
+    return false; // muita concorrência / não conseguiu estabilizar
+}
+
+static async Task CompensateStockAsync(Container container, List<(string productId, int qtyApplied)> applied)
+{
+    // devolve em ordem reversa
+    for (int i = applied.Count - 1; i >= 0; i--)
+    {
+        var (productId, qty) = applied[i];
+
+        // tenta compensar com retry simples
+        for (int attempt = 1; attempt <= 5; attempt++)
+        {
+            try
+            {
+                var read = await container.ReadItemAsync<Product>(productId, new PartitionKey("Product"));
+                var etag = read.ETag;
+
+                await container.PatchItemAsync<dynamic>(
+                    id: productId,
+                    partitionKey: new PartitionKey("Product"),
+                    patchOperations: new[] { PatchOperation.Increment("/Quantity", qty) },
+                    requestOptions: new PatchItemRequestOptions
+                    {
+                        IfMatchEtag = etag
+                    });
+
+                break; // compensou
+            }
+            catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.PreconditionFailed)
+            {
+                continue;
+            }
+            catch
+            {
+                break;
+            }
+        }
+    }
+}
 
 
 // =====================================================
