@@ -4,11 +4,17 @@ namespace DeliInventoryManagement_1.Blazor.Services;
 
 public interface IDashboardService
 {
-    Task<ProductSummaryDto> GetProductSummaryAsync();
-    Task<int> GetSupplierCountAsync();
-    Task<List<ProductDto>> GetLowStockProductsAsync(int top);
+    // V5 direto
+    Task<List<ProductV5Dto>> GetV5ProductsAsync();
+    Task<List<SaleV5Dto>> GetV5SalesAsync();
 
-    Task<List<ProductDto>> GetAllProductsAsync(string? search, string? category);
-    Task<List<CategoryDto>> GetAllCategoriesAsync();   // <-- this signature
-    Task<List<SupplierDto>> GetAllSuppliersAsync();    // <-- and this
+    // Compatibilidade (páginas atuais)
+    Task<List<ProductDto>> GetAllProductsAsync(string? search = null, string? categoryId = null);
+    Task<List<CategoryDto>> GetAllCategoriesAsync();
+    Task<List<SupplierDto>> GetAllSuppliersAsync();
+
+    // Dashboard
+    Task<ProductSummaryDto> GetProductSummaryAsync();
+    Task<List<ProductDto>> GetLowStockProductsAsync(int top = 5);
+    Task<int> GetSupplierCountAsync();
 }

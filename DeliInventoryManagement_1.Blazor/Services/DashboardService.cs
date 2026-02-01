@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Json;
+﻿using System.Net;
+using System.Text.Json;
 using DeliInventoryManagement_1.Blazor.Models;
 
 namespace DeliInventoryManagement_1.Blazor.Services;
@@ -7,65 +8,121 @@ public class DashboardService : IDashboardService
 {
     private readonly HttpClient _http;
 
+    private static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
     public DashboardService(HttpClient http)
     {
         _http = http;
     }
 
-    public async Task<ProductSummaryDto> GetProductSummaryAsync()
+    // -------------------------
+    // Helper HTTP
+    // -------------------------
+    private async Task<T?> GetAsync<T>(string url)
     {
-        var summary = await _http.GetFromJsonAsync<ProductSummaryDto>(
-            "api/v1/products/summary");
+        using var resp = await _http.GetAsync(url);
 
-        return summary ?? new ProductSummaryDto();
+        if (resp.StatusCode == HttpStatusCode.NotFound)
+            return default;
+
+        resp.EnsureSuccessStatusCode();
+
+        var json = await resp.Content.ReadAsStringAsync();
+        return JsonSerializer.Deserialize<T>(json, JsonOpts);
     }
 
-    public async Task<int> GetSupplierCountAsync()
+    // -------------------------
+    // V5 (direto)
+    // -------------------------
+    public async Task<List<ProductV5Dto>> GetV5ProductsAsync()
+        => await GetAsync<List<ProductV5Dto>>("api/v5/products") ?? new();
+
+    public async Task<List<SaleV5Dto>> GetV5SalesAsync()
+        => await GetAsync<List<SaleV5Dto>>("api/v5/sales") ?? new();
+
+    // -------------------------
+    // Compatibilidade (páginas antigas)
+    // -------------------------
+    public async Task<List<ProductDto>> GetAllProductsAsync(string? search = null, string? categoryId = null)
     {
-        var suppliers = await _http.GetFromJsonAsync<List<SupplierDto>>(
-            "api/v3/suppliers");
+        var v5 = await GetV5ProductsAsync();
 
-        return suppliers?.Count ?? 0;
-    }
-
-    public async Task<List<ProductDto>> GetLowStockProductsAsync(int top)
-    {
-        var result = await _http.GetFromJsonAsync<PagedResult<ProductDto>>(
-            $"api/v1/products?sortBy=quantity&sortDir=asc&page=1&pageSize={top}");
-
-        var items = result?.Items ?? new List<ProductDto>();
-
-        return items.Where(p => p.ReorderLevel <= 0 || p.Quantity < p.ReorderLevel)
-                    .ToList();
-    }
-
-    public async Task<List<ProductDto>> GetAllProductsAsync(string? search, string? category)
-    {
-        var query = new List<string>();
+        IEnumerable<ProductV5Dto> q = v5;
 
         if (!string.IsNullOrWhiteSpace(search))
-            query.Add($"search={Uri.EscapeDataString(search)}");
-        if (!string.IsNullOrWhiteSpace(category))
-            query.Add($"categoryId={Uri.EscapeDataString(category)}");
+            q = q.Where(p => (p.Name ?? "").Contains(search, StringComparison.OrdinalIgnoreCase));
 
-        var qs = query.Count > 0 ? "?" + string.Join("&", query) : string.Empty;
+        if (!string.IsNullOrWhiteSpace(categoryId))
+            q = q.Where(p => string.Equals(p.CategoryId, categoryId, StringComparison.OrdinalIgnoreCase));
 
-        var result = await _http.GetFromJsonAsync<PagedResult<ProductDto>>(
-            $"api/v1/products{qs}");
-
-        return result?.Items ?? new List<ProductDto>();
+        return q.Select(p => new ProductDto
+        {
+            Id = p.Id ?? "",
+            Name = p.Name ?? "",
+            CategoryId = p.CategoryId ?? "",
+            CategoryName = p.CategoryName ?? "",
+            Quantity = p.Quantity,
+            Price = p.Price,
+            Cost = p.Cost,
+            ReorderLevel = p.ReorderLevel
+        }).ToList();
     }
 
     public async Task<List<CategoryDto>> GetAllCategoriesAsync()
     {
-        var items = await _http.GetFromJsonAsync<List<CategoryDto>>("api/v2/categories");
-        return items ?? new List<CategoryDto>();
+        var v5 = await GetV5ProductsAsync();
+
+        // Deriva categories dos produtos
+        return v5
+            .Where(p => !string.IsNullOrWhiteSpace(p.CategoryId))
+            .GroupBy(p => p.CategoryId!, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new CategoryDto
+            {
+                Id = g.Key,
+                Name = g.Select(x => x.CategoryName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? g.Key
+            })
+            .OrderBy(c => c.Name)
+            .ToList();
     }
 
     public async Task<List<SupplierDto>> GetAllSuppliersAsync()
     {
-        var items = await _http.GetFromJsonAsync<List<SupplierDto>>("api/v3/suppliers");
-        return items ?? new List<SupplierDto>();
+        // Se você ainda não implementou /api/v5/suppliers, retorna vazio (não quebra o app).
+        var v5 = await GetAsync<List<SupplierDto>>("api/v5/suppliers");
+        return v5 ?? new List<SupplierDto>();
     }
 
+    // -------------------------
+    // Dashboard (summary/low stock)
+    // -------------------------
+    public async Task<ProductSummaryDto> GetProductSummaryAsync()
+    {
+        var products = await GetAllProductsAsync();
+
+        return new ProductSummaryDto
+        {
+            Count = products.Count,
+            TotalQuantity = products.Sum(p => p.Quantity)
+        };
+    }
+
+    public async Task<List<ProductDto>> GetLowStockProductsAsync(int top = 5)
+    {
+        var products = await GetAllProductsAsync();
+
+        return products
+            .Where(p => p.Quantity <= p.ReorderLevel)
+            .OrderBy(p => p.Quantity)
+            .Take(top)
+            .ToList();
+    }
+
+    public async Task<int> GetSupplierCountAsync()
+    {
+        var suppliers = await GetAllSuppliersAsync();
+        return suppliers.Count;
+    }
 }

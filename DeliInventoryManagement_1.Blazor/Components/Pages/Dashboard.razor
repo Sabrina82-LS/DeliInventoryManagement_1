@@ -21,16 +21,7 @@ else
             <div class="card text-center">
                 <div class="card-body">
                     <h6 class="card-title">Total Products</h6>
-                    <h3>@productSummary.Count</h3>
-                </div>
-            </div>
-        </div>
-
-        <div class="col-md-3 mb-3">
-            <div class="card text-center">
-                <div class="card-body">
-                    <h6 class="card-title">Total Suppliers</h6>
-                    <h3>@totalSuppliers</h3>
+                    <h3>@totalProducts</h3>
                 </div>
             </div>
         </div>
@@ -39,7 +30,7 @@ else
             <div class="card text-center">
                 <div class="card-body">
                     <h6 class="card-title">Total Stock Quantity</h6>
-                    <h3>@productSummary.TotalQuantity</h3>
+                    <h3>@totalStockQty</h3>
                 </div>
             </div>
         </div>
@@ -47,9 +38,19 @@ else
         <div class="col-md-3 mb-3">
             <div class="card text-center">
                 <div class="card-body">
-                    <h6 class="card-title">Today's Sales</h6>
+                    <h6 class="card-title">Today's Sales (Total)</h6>
                     <h3>@todaysSales</h3>
-                    <small>(placeholder)</small>
+                    <small>(from V5 Sales)</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h6 class="card-title">Suppliers</h6>
+                    <h3>—</h3>
+                    <small>(coming in V5)</small>
                 </div>
             </div>
         </div>
@@ -91,28 +92,12 @@ else
 
         <div class="col-md-4">
             <h5>Quick Links</h5>
-
             <div class="d-grid gap-2">
-
-                <NavLink class="btn btn-secondary" href="/products" Match="NavLinkMatch.Prefix">
-                    Products
-                </NavLink>
-                
-                <NavLink class="btn btn-secondary" href="/stock" Match="NavLinkMatch.Prefix">
-                    Stock
-                </NavLink>
-
-                <NavLink class="btn btn-success" href="/sales" Match="NavLinkMatch.Prefix">
-                    Sales
-                </NavLink>
-
-                <NavLink class="btn btn-primary" href="/restock" Match="NavLinkMatch.Prefix">
-                    Restock
-                </NavLink>
-
-                <NavLink class="btn btn-info" href="/reports" Match="NavLinkMatch.Prefix">
-                    Reports
-                </NavLink>
+                <NavLink class="btn btn-secondary" href="/products" Match="NavLinkMatch.Prefix">Products</NavLink>
+                <NavLink class="btn btn-secondary" href="/stock" Match="NavLinkMatch.Prefix">Stock</NavLink>
+                <NavLink class="btn btn-success" href="/sales" Match="NavLinkMatch.Prefix">Sales</NavLink>
+                <NavLink class="btn btn-primary" href="/restock" Match="NavLinkMatch.Prefix">Restock</NavLink>
+                <NavLink class="btn btn-info" href="/reports" Match="NavLinkMatch.Prefix">Reports</NavLink>
             </div>
         </div>
     </div>
@@ -122,19 +107,35 @@ else
     bool isLoading = true;
     string? errorMessage;
 
-    ProductSummaryDto productSummary = new();
-    int totalSuppliers;
-    List<ProductDto> lowStockProducts = new();
-    decimal todaysSales = 0m; // placeholder
+    int totalProducts;
+    int totalStockQty;
+    decimal todaysSales;
+
+    List<ProductV5Dto> lowStockProducts = new();
 
     protected override async Task OnInitializedAsync()
     {
         try
         {
             isLoading = true;
-            productSummary = await DashboardService.GetProductSummaryAsync();
-            totalSuppliers = await DashboardService.GetSupplierCountAsync();
-            lowStockProducts = await DashboardService.GetLowStockProductsAsync(5);
+
+            var products = await DashboardService.GetV5ProductsAsync();
+
+            totalProducts = products.Count;
+            totalStockQty = products.Sum(p => p.Quantity);
+
+            lowStockProducts = products
+                .Where(p => p.Quantity <= p.ReorderLevel)
+                .OrderBy(p => p.Quantity)
+                .Take(5)
+                .ToList();
+
+            var sales = await DashboardService.GetV5SalesAsync();
+
+            var todayUtc = DateTime.UtcNow.Date;
+            todaysSales = sales
+                .Where(s => s.Date.Date == todayUtc)
+                .Sum(s => s.Total);
         }
         catch (Exception ex)
         {

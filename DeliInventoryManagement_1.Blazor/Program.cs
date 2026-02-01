@@ -10,46 +10,35 @@ builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
 // =============================
-// 2) API Base URL (centralizado)
+// 2) API Base URL (appsettings)
 // =============================
-const string ApiBaseUrl = "https://localhost:7022/";
-// Se seu Swagger/API estiver em outra porta (ex: 7202), troque aqui.
+var apiBaseUrl = builder.Configuration["Api:BaseUrl"];
+if (string.IsNullOrWhiteSpace(apiBaseUrl))
+    throw new InvalidOperationException("Missing configuration: Api:BaseUrl in appsettings.json");
 
 // =============================
 // 3) HttpClient para a API
 // =============================
-
-// 3.1) Client nomeado "Api" (recomendado para reutilizar em vários services)
 builder.Services.AddHttpClient("Api", client =>
 {
-    client.BaseAddress = new Uri(ApiBaseUrl);
+    client.BaseAddress = new Uri(apiBaseUrl);
 });
 
-// 3.2) Services que consomem a API (tipados)
-// ✅ DashboardService (GET products/categories/suppliers/summary etc.)
 builder.Services.AddHttpClient<IDashboardService, DashboardService>(client =>
 {
-    client.BaseAddress = new Uri(ApiBaseUrl);
+    client.BaseAddress = new Uri(apiBaseUrl);
 });
 
-// ✅ SalesService (POST /api/v4/sales)
 builder.Services.AddHttpClient<ISalesService, SalesService>(client =>
 {
-    client.BaseAddress = new Uri(ApiBaseUrl);
+    client.BaseAddress = new Uri(apiBaseUrl);
 });
 
-// =====================================================
-// ✅ PASSO 4: RestockService (POST /api/restocks)
-// - Este service será usado pela página Restocks.razor
-// - Envia o restock para a API e a API aumenta o stock no Cosmos
-// =====================================================
 builder.Services.AddHttpClient<IRestockService, RestockService>(client =>
 {
-    client.BaseAddress = new Uri(ApiBaseUrl);
+    client.BaseAddress = new Uri(apiBaseUrl);
 });
 
-// 3.3) (Opcional) HttpClient padrão apontando pra API
-//      Útil se você quiser injetar HttpClient diretamente em algum component/service
 builder.Services.AddScoped(sp =>
     sp.GetRequiredService<IHttpClientFactory>().CreateClient("Api")
 );
