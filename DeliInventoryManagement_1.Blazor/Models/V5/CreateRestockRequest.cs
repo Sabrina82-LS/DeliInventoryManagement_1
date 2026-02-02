@@ -1,4 +1,4 @@
-﻿namespace DeliInventoryManagement_1.Blazor.Models;
+﻿namespace DeliInventoryManagement_1.Blazor.Models.V5;
 
 public class CreateRestockRequest
 {
@@ -8,4 +8,5 @@ public class CreateRestockRequest
     public string SupplierName { get; set; } = string.Empty;
 
     public List<CreateRestockLineRequest> Lines { get; set; } = new();
+
 }

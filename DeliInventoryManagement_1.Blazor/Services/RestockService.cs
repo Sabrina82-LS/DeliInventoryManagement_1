@@ -1,4 +1,4 @@
-﻿using DeliInventoryManagement_1.Blazor.Models;
+﻿using DeliInventoryManagement_1.Blazor.Models.V5;
 using System.Net.Http.Json;
 
 namespace DeliInventoryManagement_1.Blazor.Services;
@@ -19,7 +19,7 @@ public class RestockService : IRestockService
     // =====================================================
     public async Task CreateAsync(CreateRestockRequest request)
     {
-        var res = await _http.PostAsJsonAsync("/api/restocks", request);
+        var res = await _http.PostAsJsonAsync("api/v5/restocks", request);
         res.EnsureSuccessStatusCode();
     }
 }

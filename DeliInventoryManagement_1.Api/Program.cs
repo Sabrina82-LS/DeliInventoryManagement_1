@@ -105,6 +105,7 @@ app.MapControllers();
 // =====================================================
 app.MapV5Endpoints();
 app.MapV5Suppliers();
+app.MapV5RestocksEndpoints();
 
 app.Run();
 

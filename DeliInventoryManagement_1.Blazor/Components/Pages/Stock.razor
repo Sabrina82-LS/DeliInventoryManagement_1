@@ -1,7 +1,9 @@
-﻿@* @page "/stock" *@
-@using DeliInventoryManagement_1.Blazor.Models
-@inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
+﻿@page "/stock"
 @rendermode InteractiveServer
+
+@using DeliInventoryManagement_1.Blazor.Models.V5
+@using DeliInventoryManagement_1.Blazor.Services
+@inject IDashboardService DashboardService
 
 <h3>Stock</h3>
 
@@ -62,7 +64,6 @@ else
                 <th>ID</th>
                 <th>Product</th>
                 <th>Category</th>
-                <th>Type</th>
                 <th class="text-end">Cost</th>
                 <th class="text-end">Price</th>
                 <th class="text-end">Reorder</th>
@@ -79,7 +80,6 @@ else
                     <td class="text-muted">@p.Id</td>
                     <td>@p.Name</td>
                     <td>@p.CategoryName</td>
-                    <td>@(string.IsNullOrWhiteSpace(p.Type) ? "-" : p.Type)</td>
 
                     <td class="text-end">@p.Cost.ToString("0.00")</td>
                     <td class="text-end">@p.Price.ToString("0.00")</td>
@@ -109,8 +109,16 @@ else
     private string searchText = "";
     private string selectedCategoryId = "";
 
-    private List<ProductDto> products = new();
-    private List<CategoryDto> categories = new();
+    private List<ProductV5Dto> products = new();
+
+    // categorias derivadas (não dependem de endpoint legacy)
+    private List<CategoryVm> categories = new();
+
+    private sealed class CategoryVm
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+    }
 
     protected override async Task OnInitializedAsync()
         => await LoadInitialAsync();
@@ -122,11 +130,22 @@ else
             isLoading = true;
             errorMessage = null;
 
-            // carrega categorias 1x
-            categories = await DashboardService.GetAllCategoriesAsync();
+            // carrega produtos V5 e deriva categorias
+            var all = await DashboardService.GetAllProductsV5Async();
 
-            // sempre carregar o stock ao entrar
-            await LoadStockAsync();
+            categories = all
+                .Where(p => !string.IsNullOrWhiteSpace(p.CategoryId))
+                .GroupBy(p => p.CategoryId!, StringComparer.OrdinalIgnoreCase)
+                .Select(g => new CategoryVm
+                {
+                    Id = g.Key,
+                    Name = g.Select(x => x.CategoryName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? g.Key
+                })
+                .OrderBy(c => c.Name)
+                .ToList();
+
+            // stock inicial (sem filtro)
+            products = all;
         }
         catch (Exception ex)
         {
@@ -148,7 +167,8 @@ else
             var text = string.IsNullOrWhiteSpace(searchText) ? null : searchText;
             var cat = string.IsNullOrWhiteSpace(selectedCategoryId) ? null : selectedCategoryId;
 
-            products = await DashboardService.GetAllProductsAsync(text, cat);
+            // ✅ V5-first
+            products = await DashboardService.GetAllProductsV5Async(text, cat);
         }
         catch (Exception ex)
         {
@@ -164,6 +184,7 @@ else
     {
         searchText = "";
         selectedCategoryId = "";
+
         await LoadStockAsync();
     }
 

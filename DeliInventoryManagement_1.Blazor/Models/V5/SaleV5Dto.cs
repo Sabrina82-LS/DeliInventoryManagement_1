@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace DeliInventoryManagement_1.Blazor.Models;
+namespace DeliInventoryManagement_1.Blazor.Models.V5;
 
 public sealed class SaleV5Dto
 {

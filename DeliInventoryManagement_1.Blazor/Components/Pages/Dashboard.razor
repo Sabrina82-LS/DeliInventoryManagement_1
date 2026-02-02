@@ -1,5 +1,6 @@
 ﻿@page "/dashboard"
 @using DeliInventoryManagement_1.Blazor.Models
+@using DeliInventoryManagement_1.Blazor.Models.V5
 @inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
 @inject NavigationManager NavManager
 @rendermode InteractiveServer
@@ -119,7 +120,8 @@ else
         {
             isLoading = true;
 
-            var products = await DashboardService.GetV5ProductsAsync();
+            var products = await DashboardService.GetAllProductsV5Async();
+
 
             totalProducts = products.Count;
             totalStockQty = products.Sum(p => p.Quantity);

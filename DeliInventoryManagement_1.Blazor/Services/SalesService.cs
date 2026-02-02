@@ -14,7 +14,7 @@ public class SalesService : ISalesService
 
     public async Task<CreateSaleResponse> CreateSaleAsync(CreateSaleRequest req)
     {
-        var resp = await _http.PostAsJsonAsync("api/v4/sales", req);
+        var resp = await _http.PostAsJsonAsync("/api/v5/sales", req);
 
         var body = await resp.Content.ReadAsStringAsync();
         if (!resp.IsSuccessStatusCode)
@@ -22,4 +22,5 @@ public class SalesService : ISalesService
 
         return (await resp.Content.ReadFromJsonAsync<CreateSaleResponse>())!;
     }
+
 }

@@ -1,6 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace DeliInventoryManagement_1.Blazor.Models;
+namespace DeliInventoryManagement_1.Blazor.Models.Legacy;
 
 public class ProductDto
 {

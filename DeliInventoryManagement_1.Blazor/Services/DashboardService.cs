@@ -1,6 +1,8 @@
-﻿using System.Net;
+﻿using DeliInventoryManagement_1.Blazor.Models;
+using DeliInventoryManagement_1.Blazor.Models.Legacy;
+using DeliInventoryManagement_1.Blazor.Models.V5;
+using System.Net;
 using System.Text.Json;
-using DeliInventoryManagement_1.Blazor.Models;
 
 namespace DeliInventoryManagement_1.Blazor.Services;
 
@@ -35,18 +37,16 @@ public class DashboardService : IDashboardService
     }
 
     // -------------------------
-    // V5 (direto)
+    // V5 (direto)  ✅ (URL com / para evitar problemas de BaseAddress)
     // -------------------------
     public async Task<List<ProductV5Dto>> GetV5ProductsAsync()
-        => await GetAsync<List<ProductV5Dto>>("api/v5/products") ?? new();
+        => await GetAsync<List<ProductV5Dto>>("/api/v5/products") ?? new();
 
     public async Task<List<SaleV5Dto>> GetV5SalesAsync()
-        => await GetAsync<List<SaleV5Dto>>("api/v5/sales") ?? new();
+        => await GetAsync<List<SaleV5Dto>>("/api/v5/sales") ?? new();
 
-    // -------------------------
-    // Compatibilidade (páginas antigas)
-    // -------------------------
-    public async Task<List<ProductDto>> GetAllProductsAsync(string? search = null, string? categoryId = null)
+    // ✅ Novo: V5 com filtros (para páginas novas como Restocks/Stock V5)
+    public async Task<List<ProductV5Dto>> GetAllProductsV5Async(string? search = null, string? categoryId = null)
     {
         var v5 = await GetV5ProductsAsync();
 
@@ -57,6 +57,17 @@ public class DashboardService : IDashboardService
 
         if (!string.IsNullOrWhiteSpace(categoryId))
             q = q.Where(p => string.Equals(p.CategoryId, categoryId, StringComparison.OrdinalIgnoreCase));
+
+        return q.ToList();
+    }
+
+    // -------------------------
+    // Compatibilidade (páginas antigas) 🗃️
+    // -------------------------
+    public async Task<List<ProductDto>> GetAllProductsAsync(string? search = null, string? categoryId = null)
+    {
+        // Usa V5 por baixo, mas devolve DTO antigo (para não quebrar páginas legacy)
+        var q = await GetAllProductsV5Async(search, categoryId);
 
         return q.Select(p => new ProductDto
         {
@@ -91,7 +102,8 @@ public class DashboardService : IDashboardService
     public async Task<List<SupplierDto>> GetAllSuppliersAsync()
     {
         // Se você ainda não implementou /api/v5/suppliers, retorna vazio (não quebra o app).
-        var v5 = await GetAsync<List<SupplierDto>>("api/v5/suppliers");
+        // ✅ URL com / para evitar problemas de BaseAddress
+        var v5 = await GetAsync<List<SupplierDto>>("/api/v5/suppliers");
         return v5 ?? new List<SupplierDto>();
     }
 

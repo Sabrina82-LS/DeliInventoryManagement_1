@@ -1,11 +1,12 @@
 ﻿@page "/restocks"
 @rendermode InteractiveServer
-@using DeliInventoryManagement_1.Blazor.Models
+
+@using DeliInventoryManagement_1.Blazor.Models.V5
 @using DeliInventoryManagement_1.Blazor.Services
 
 @inject IRestockService RestockService
 @inject IDashboardService DashboardService
-
+@inject ISuppliersServiceV5 SuppliersServiceV5
 
 <h3>Restocks</h3>
 
@@ -33,7 +34,7 @@ else
                 </div>
 
                 <div class="col-md-5">
-                    <label class="form-label">Supplier</label>
+                    <label class="form-label">Supplier (V5)</label>
                     <select class="form-select" @bind="selectedSupplierId">
                         <option value="">-- Select supplier --</option>
                         @foreach (var s in suppliers)
@@ -164,8 +165,10 @@ else
     private string? successMessage; // sucesso ao salvar
     private string? saveError;      // erro ao salvar
 
-    private List<ProductDto> products = new();
-    private List<SupplierDto> suppliers = new();
+    private List<ProductV5Dto> products = new();
+
+    // ✅ Agora Suppliers vem do V5
+    private List<SupplierV5Dto> suppliers = new();
 
     // Header (Restock)
     private DateTime restockDate = DateTime.Today;
@@ -207,9 +210,16 @@ else
             isLoading = true;
             errorMessage = null;
 
-            // Carrega dados para os selects
-            products = await DashboardService.GetAllProductsAsync(null, null);
-            suppliers = await DashboardService.GetAllSuppliersAsync();
+            // Produtos continuam do Dashboard (ok)
+            products = await DashboardService.GetAllProductsV5Async(null, null);
+
+
+            // ✅ Suppliers agora vêm do V5
+            suppliers = await SuppliersServiceV5.GetAllAsync();
+
+            // opcional: pré-seleciona o primeiro supplier se quiser
+            // if (suppliers.Count > 0 && string.IsNullOrWhiteSpace(selectedSupplierId))
+            //     selectedSupplierId = suppliers[0].Id;
         }
         catch (Exception ex)
         {
@@ -313,6 +323,7 @@ else
         }
 
         // ✅ Monta o request para a API (POST /api/restocks)
+        // (mantive seu DTO atual, só trocando o supplier fonte)
         var request = new CreateRestockRequest
         {
             Date = restockDate,
