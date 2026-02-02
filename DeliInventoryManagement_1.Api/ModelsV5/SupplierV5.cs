@@ -1,26 +1,25 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace DeliInventoryManagement_1.Api.ModelsV5;
+namespace DeliInventoryManagement_1.Api.Models.V5;
 
-public sealed class SupplierV5 : CosmosDocument
+public class SupplierV5
 {
-    public SupplierV5()
-    {
-        Type = "Supplier";
-    }
+    [JsonPropertyName("id")]
+    public string Id { get; set; } = Guid.NewGuid().ToString("n");
 
-    [JsonPropertyName("name")]
+    // Partition Key do container Suppliers ("/pk")
+    [JsonPropertyName("pk")]
+    public string Pk { get; set; } = "supplier";
+
+    [JsonPropertyName("type")]
+    public string Type { get; set; } = "Supplier";
+
     public string Name { get; set; } = string.Empty;
 
-    [JsonPropertyName("email")]
     public string? Email { get; set; }
-
-    [JsonPropertyName("phone")]
     public string? Phone { get; set; }
-
-    [JsonPropertyName("notes")]
     public string? Notes { get; set; }
 
-    [JsonPropertyName("isActive")]
-    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
 }

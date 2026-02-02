@@ -1,6 +1,7 @@
 using DeliInventoryManagement_1.Api.Configuration;
 using DeliInventoryManagement_1.Api.Data;
 using DeliInventoryManagement_1.Api.Endpoints;
+using DeliInventoryManagement_1.Api.Endpoints.V5;
 using DeliInventoryManagement_1.Api.Services;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Azure.Cosmos;
@@ -103,6 +104,7 @@ app.MapControllers();
 // 7) V5 Endpoints (novo oficial)
 // =====================================================
 app.MapV5Endpoints();
+app.MapV5Suppliers();
 
 app.Run();
 
