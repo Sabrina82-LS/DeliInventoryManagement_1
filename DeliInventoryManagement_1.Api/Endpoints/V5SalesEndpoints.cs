@@ -39,11 +39,15 @@ public static class V5SalesEndpoints
             if (req?.Lines == null || req.Lines.Count == 0)
                 return Results.BadRequest("Sale must contain at least one line.");
 
-            var pk = CosmosContainerFactory.StorePk;
+            var pkValue = CosmosContainerFactory.StorePk;   // "STORE#1"
+            var pk = new PartitionKey(pkValue);
+
             var products = factory.Products();
             var ops = factory.Operations();
 
-            // agrupa duplicados
+            // ============================
+            // 1) Normaliza/agrupa linhas
+            // ============================
             var grouped = req.Lines
                 .Where(l => !string.IsNullOrWhiteSpace(l.ProductId) && l.Quantity > 0)
                 .GroupBy(l => l.ProductId.Trim(), StringComparer.OrdinalIgnoreCase)
@@ -53,22 +57,26 @@ public static class V5SalesEndpoints
             if (grouped.Count == 0)
                 return Results.BadRequest("Invalid sale lines.");
 
-            // carrega produtos e valida estoque
-            var loaded = new Dictionary<string, ProductV5>(StringComparer.OrdinalIgnoreCase);
+            // ============================
+            // 2) Carrega produtos e valida estoque (antes do batch)
+            //    + captura ETag p/ concorrência (professor-mode)
+            // ============================
+            var loaded = new Dictionary<string, (ProductV5 Product, string ETag)>(StringComparer.OrdinalIgnoreCase);
+
             foreach (var line in grouped)
             {
                 try
                 {
-                    var read = await products.ReadItemAsync<ProductV5>(line.ProductId, new PartitionKey(pk));
+                    var read = await products.ReadItemAsync<ProductV5>(line.ProductId, pk);
                     var p = read.Resource;
 
-                    if (p.Type != "Product")
+                    if (!string.Equals(p.Type, "Product", StringComparison.OrdinalIgnoreCase))
                         return Results.BadRequest($"'{line.ProductId}' is not a Product document.");
 
                     if (p.Quantity < line.Quantity)
                         return Results.BadRequest($"Not enough stock for '{p.Name}'. Available={p.Quantity}, Requested={line.Quantity}");
 
-                    loaded[line.ProductId] = p;
+                    loaded[line.ProductId] = (p, read.ETag);
                 }
                 catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
                 {
@@ -76,31 +84,56 @@ public static class V5SalesEndpoints
                 }
             }
 
-            // baixa estoque (simples agora; depois evolui p/ TransactionalBatch)
+            // ============================
+            // 3) TransactionalBatch no PRODUCTS (ATÔMICO)
+            //    - Se qualquer item falhar, nada é aplicado
+            //    - Se alguém alterou o item após o read => 412 (ETag)
+            // ============================
+            var productsBatch = products.CreateTransactionalBatch(pk);
+
             foreach (var line in grouped)
             {
-                await products.PatchItemAsync<dynamic>(
+                var etag = loaded[line.ProductId].ETag;
+
+                productsBatch.PatchItem(
                     id: line.ProductId,
-                    partitionKey: new PartitionKey(pk),
                     patchOperations: new[]
                     {
                         PatchOperation.Increment("/quantity", -line.Quantity),
                         PatchOperation.Set("/updatedAtUtc", DateTime.UtcNow)
+                    },
+                    requestOptions: new TransactionalBatchPatchItemRequestOptions
+                    {
+                        IfMatchEtag = etag
                     });
             }
 
-            // cria Sale
+            var productsResp = await productsBatch.ExecuteAsync();
+
+            if (!productsResp.IsSuccessStatusCode)
+            {
+                // 412 = concorrência (alguém mudou o produto depois do seu read)
+                // 404 = algum id não existe no pk (STORE#1)
+                return Results.Problem(
+                    title: "Products TransactionalBatch failed",
+                    detail: $"Status: {(int)productsResp.StatusCode} {productsResp.StatusCode}",
+                    statusCode: (int)productsResp.StatusCode);
+            }
+
+            // ============================
+            // 4) Cria Sale (Operations)
+            // ============================
             var sale = new SaleV5
             {
                 Id = $"SALE#{Guid.NewGuid():N}",
-                Pk = pk,
+                Pk = pkValue,
                 Type = "Sale",
-                Date = req.Date ?? DateTime.UtcNow,
+                Date = (req.Date ?? DateTime.UtcNow).ToUniversalTime(),
                 CreatedAtUtc = DateTime.UtcNow,
                 UpdatedAtUtc = DateTime.UtcNow,
                 Lines = grouped.Select(g =>
                 {
-                    var p = loaded[g.ProductId];
+                    var p = loaded[g.ProductId].Product;
                     return new SaleLineV5
                     {
                         ProductId = p.Id,
@@ -110,15 +143,16 @@ public static class V5SalesEndpoints
                     };
                 }).ToList()
             };
+
             sale.Total = sale.Lines.Sum(x => x.UnitPrice * x.Quantity);
 
-            await ops.CreateItemAsync(sale, new PartitionKey(pk));
-
-            // cria StockMovement
+            // ============================
+            // 5) Cria StockMovement (1 doc com linhas) (Operations)
+            // ============================
             var movement = new StockMovementV5
             {
                 Id = $"MOVE#{Guid.NewGuid():N}",
-                Pk = pk,
+                Pk = pkValue,
                 Type = "StockMovement",
                 Reason = "SALE",
                 RefId = sale.Id,
@@ -130,28 +164,65 @@ public static class V5SalesEndpoints
                     Delta = -g.Quantity
                 }).ToList()
             };
-            await ops.CreateItemAsync(movement, new PartitionKey(pk));
 
-            // cria OutboxEvent (para RabbitMQ depois)
+            // ============================
+            // 6) OutboxEvent (Pending) (Operations)
+            // ============================
             var outbox = new OutboxEventV5
             {
                 Id = $"OUTBOX#{Guid.NewGuid():N}",
-                Pk = pk,
+                Pk = pkValue,
                 Type = "OutboxEvent",
+
                 Status = "Pending",
                 EventType = "SaleCreated",
+                AggregateType = "SALE",
+                AggregateId = sale.Id,
+
                 CreatedAtUtc = DateTime.UtcNow,
                 UpdatedAtUtc = DateTime.UtcNow,
+
                 Payload = new
                 {
                     saleId = sale.Id,
+                    date = sale.Date,
                     total = sale.Total,
-                    lines = sale.Lines.Select(x => new { x.ProductId, x.Quantity, x.UnitPrice }).ToList()
+                    lines = sale.Lines.Select(x => new
+                    {
+                        productId = x.ProductId,
+                        productName = x.ProductName,
+                        quantity = x.Quantity,
+                        unitPrice = x.UnitPrice
+                    }).ToList()
                 }
             };
-            await ops.CreateItemAsync(outbox, new PartitionKey(pk));
 
-            return Results.Created($"/api/v5/sales/{sale.Id}", new { saleId = sale.Id, sale.Total });
+            // ============================
+            // 7) TransactionalBatch no OPERATIONS
+            //    (sale + movement + outbox juntos)
+            // ============================
+            var opsBatch = ops.CreateTransactionalBatch(pk)
+                .CreateItem(sale)
+                .CreateItem(movement)
+                .CreateItem(outbox);
+
+            var opsResp = await opsBatch.ExecuteAsync();
+
+            if (!opsResp.IsSuccessStatusCode)
+            {
+                return Results.Problem(
+                    title: "Operations TransactionalBatch failed",
+                    detail: $"Status: {(int)opsResp.StatusCode} {opsResp.StatusCode}",
+                    statusCode: (int)opsResp.StatusCode);
+            }
+
+            return Results.Created($"/api/v5/sales/{sale.Id}", new
+            {
+                saleId = sale.Id,
+                sale.Total,
+                movementId = movement.Id,
+                outboxId = outbox.Id
+            });
         })
         .WithTags("5 - Inventory V5 (Hybrid Cosmos /pk)");
     }

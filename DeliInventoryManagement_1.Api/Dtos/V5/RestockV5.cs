@@ -19,7 +19,7 @@ public sealed class RestockV5 : CosmosDocument
 
     public decimal TotalCost => Lines.Sum(l => l.LineTotal);
 
-    public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
+    public new DateTime CreatedAtUtc { get; set; }
 }
 
 public sealed class RestockLineV5
