@@ -2,8 +2,9 @@ using DeliInventoryManagement_1.Api.Configuration;
 using DeliInventoryManagement_1.Api.Data;
 using DeliInventoryManagement_1.Api.Endpoints;
 using DeliInventoryManagement_1.Api.Endpoints.V5;
+using DeliInventoryManagement_1.Api.Messaging;
 using DeliInventoryManagement_1.Api.Services;
-using DeliInventoryManagement_1.Api.Services.Outbox; // 👈 PASSO 10.2
+using DeliInventoryManagement_1.Api.Services.Outbox;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Options;
@@ -16,13 +17,10 @@ var builder = WebApplication.CreateBuilder(args);
 // =====================================================
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
-// Se ainda existir algum controller legado, manter
 builder.Services.AddControllers();
-
 builder.Services.AddMemoryCache();
 
-// ✅ JSON para Minimal APIs (camelCase)
+// ✅ JSON (camelCase) para Minimal APIs
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
@@ -33,6 +31,8 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 // 2) CORS (Blazor -> API)
 // =====================================================
 const string blazorHttps = "https://localhost:7081";
+// Se você NÃO usa Blazor via http, pode remover esta linha.
+// Se usa, ajuste para a porta correta (ex: http://localhost:5081).
 const string blazorHttp = "http://localhost:7081";
 
 builder.Services.AddCors(options =>
@@ -49,7 +49,7 @@ builder.Services.AddCors(options =>
 builder.Services.AddAuthorization();
 
 // =====================================================
-// 4) Cosmos Options + CosmosClient + ContainerFactory
+// 4) Cosmos Options + CosmosClient + Factory
 // =====================================================
 builder.Services.Configure<CosmosOptions>(
     builder.Configuration.GetSection("CosmosDb"));
@@ -82,19 +82,24 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddSingleton<CosmosContainerFactory>();
 
 // =====================================================
-// 🔥 PASSO 10.2 — OUTBOX DISPATCHER (BACKGROUND SERVICE)
+// 5) RabbitMQ Producer (11.3)
+// =====================================================
+builder.Services.AddSingleton<RabbitMqPublisher>();
+
+// =====================================================
+// 6) Outbox Dispatcher (10.2 + 11.3)
 // =====================================================
 builder.Services.AddHostedService<OutboxDispatcherV5>();
 
 var app = builder.Build();
 
 // =====================================================
-// 5) Startup: garante DB + Containers V5 (schema híbrido /pk)
+// 7) Startup: garante DB + Containers V5
 // =====================================================
 await EnsureCosmosSchemaAsync(app);
 
 // =====================================================
-// 6) Middlewares
+// 8) Middlewares
 // =====================================================
 if (app.Environment.IsDevelopment())
 {
@@ -104,32 +109,27 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("BlazorCors");
-
-// Se no futuro entrar JWT, app.UseAuthentication() vem antes
 app.UseAuthorization();
 
-// Controllers legados (se houver)
 app.MapControllers();
 
 // =====================================================
-// 7) V5 Endpoints (Inventory V5 oficial)
+// 9) Endpoints V5
 // =====================================================
-app.MapV5Endpoints();
+app.MapV5Endpoints();          // inclui Products + Sales (via group /api/v5)
 app.MapV5Suppliers();
 app.MapV5RestocksEndpoints();
 app.MapV5OutboxEndpoints();
 
 app.Run();
 
-
 // =====================================================
-// Helper: cria DB + containers shows V5
+// Helper: cria DB + containers V5 (/pk)
 // =====================================================
 static async Task EnsureCosmosSchemaAsync(WebApplication app)
 {
     using var scope = app.Services.CreateScope();
 
-    var env = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
     var cosmos = scope.ServiceProvider.GetRequiredService<CosmosClient>();
     var opt = scope.ServiceProvider.GetRequiredService<IOptions<CosmosOptions>>().Value;
 
@@ -139,21 +139,8 @@ static async Task EnsureCosmosSchemaAsync(WebApplication app)
     var dbResp = await cosmos.CreateDatabaseIfNotExistsAsync(opt.DatabaseId);
     var db = dbResp.Database;
 
-    // ✅ Containers V5 (schema híbrido /pk)
-    await db.CreateContainerIfNotExistsAsync(
-        new ContainerProperties(opt.Containers.Products, "/pk"));
-
-    await db.CreateContainerIfNotExistsAsync(
-        new ContainerProperties(opt.Containers.Suppliers, "/pk"));
-
-    await db.CreateContainerIfNotExistsAsync(
-        new ContainerProperties(opt.Containers.ReorderRules, "/pk"));
-
-    await db.CreateContainerIfNotExistsAsync(
-        new ContainerProperties(opt.Containers.Operations, "/pk"));
-
-    // 🔒 Legado mantido apenas para histórico (não tocar)
-
-    if (!env.IsDevelopment())
-        return;
+    await db.CreateContainerIfNotExistsAsync(new ContainerProperties(opt.Containers.Products, "/pk"));
+    await db.CreateContainerIfNotExistsAsync(new ContainerProperties(opt.Containers.Suppliers, "/pk"));
+    await db.CreateContainerIfNotExistsAsync(new ContainerProperties(opt.Containers.ReorderRules, "/pk"));
+    await db.CreateContainerIfNotExistsAsync(new ContainerProperties(opt.Containers.Operations, "/pk"));
 }

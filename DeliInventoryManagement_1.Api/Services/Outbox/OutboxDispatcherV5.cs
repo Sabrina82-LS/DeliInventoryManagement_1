@@ -1,4 +1,5 @@
-﻿using DeliInventoryManagement_1.Api.ModelsV5;
+﻿using DeliInventoryManagement_1.Api.Messaging;
+using DeliInventoryManagement_1.Api.ModelsV5;
 using Microsoft.Azure.Cosmos;
 
 namespace DeliInventoryManagement_1.Api.Services.Outbox;
@@ -7,17 +8,22 @@ public sealed class OutboxDispatcherV5 : BackgroundService
 {
     private readonly CosmosClient _cosmos;
     private readonly IConfiguration _cfg;
+    private readonly RabbitMqPublisher _publisher;
     private readonly ILogger<OutboxDispatcherV5> _logger;
 
     private const int MaxAttempts = 5;
+    private static readonly TimeSpan LoopDelay = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan LockDuration = TimeSpan.FromSeconds(30);
 
     public OutboxDispatcherV5(
         CosmosClient cosmos,
         IConfiguration cfg,
+        RabbitMqPublisher publisher,
         ILogger<OutboxDispatcherV5> logger)
     {
         _cosmos = cosmos;
         _cfg = cfg;
+        _publisher = publisher;
         _logger = logger;
     }
 
@@ -31,39 +37,61 @@ public sealed class OutboxDispatcherV5 : BackgroundService
             {
                 await DispatchOnce(stoppingToken);
             }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // shutdown
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "❌ Outbox dispatcher error");
             }
 
-            await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+            try
+            {
+                await Task.Delay(LoopDelay, stoppingToken);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // shutdown
+            }
         }
+
+        _logger.LogInformation("🛑 Outbox Dispatcher stopped");
     }
 
     private async Task DispatchOnce(CancellationToken ct)
     {
-        var c = _cfg.GetSection("CosmosDb");
-        var dbId = c["DatabaseId"] ?? c["DatabaseName"];
-        var ops = _cosmos.GetContainer(dbId!, "Operations");
+        var dbId = GetDatabaseId();
+        var opsContainerName = GetOperationsContainerName();
 
-        var pk = new PartitionKey("STORE#1");
+        var ops = _cosmos.GetContainer(dbId, opsContainerName);
+
+        // (por enquanto fixo, igual seu projeto)
+        var storePkValue = "STORE#1";
+        var pk = new PartitionKey(storePkValue);
+
+        // ✅ IMPORTANTÍSSIMO:
+        // Cosmos armazena DateTime como string ISO (ex: "2026-02-07T15:52:59.59Z")
+        // então comparamos string ISO com string ISO.
+        var nowIso = DateTime.UtcNow.ToString("O");
 
         var query = new QueryDefinition(@"
             SELECT * FROM c
             WHERE c.pk = @pk
               AND c.type = 'OutboxEvent'
               AND c.status = 'Pending'
-              AND (NOT IS_DEFINED(c.lockedUntilUtc) OR c.lockedUntilUtc < @now)
+              AND (NOT IS_DEFINED(c.lockedUntilUtc) OR c.lockedUntilUtc < @nowIso)
+            ORDER BY c.updatedAtUtc ASC
         ")
-        .WithParameter("@pk", "STORE#1")
-        .WithParameter("@now", DateTime.UtcNow);
+        .WithParameter("@pk", storePkValue)
+        .WithParameter("@nowIso", nowIso);
 
         using var it = ops.GetItemQueryIterator<OutboxEventV5>(
             query,
             requestOptions: new QueryRequestOptions
             {
                 PartitionKey = pk,
-                MaxItemCount = 5
+                MaxItemCount = 10
             });
 
         if (!it.HasMoreResults)
@@ -71,13 +99,53 @@ public sealed class OutboxDispatcherV5 : BackgroundService
 
         var page = await it.ReadNextAsync(ct);
 
+        if (page.Count == 0)
+            return;
+
+        _logger.LogInformation("📦 Outbox batch fetched: {Count} item(s)", page.Count);
+
         foreach (var evt in page)
         {
-            await ProcessEvent(evt, ops, pk, ct);
+            await ProcessEventAsync(evt, ops, pk, ct);
         }
     }
 
-    private async Task ProcessEvent(
+    private string GetDatabaseId()
+    {
+        var c = _cfg.GetSection("CosmosDb");
+        var dbId = c["DatabaseId"] ?? c["DatabaseName"];
+
+        if (string.IsNullOrWhiteSpace(dbId))
+            throw new InvalidOperationException("CosmosDb: DatabaseId (ou DatabaseName) não configurado.");
+
+        return dbId;
+    }
+
+    private string GetOperationsContainerName()
+    {
+        // tenta pegar do seu appsettings:
+        // CosmosDb:Containers:Operations
+        var opsName = _cfg["CosmosDb:Containers:Operations"];
+        return string.IsNullOrWhiteSpace(opsName) ? "Operations" : opsName;
+    }
+
+    private static string ResolveRoutingKey(OutboxEventV5 evt)
+    {
+        return evt.EventType switch
+        {
+            "SaleCreated" => "sale.created",
+            "RestockCreated" => "restock.created",
+            _ => evt.AggregateType switch
+            {
+                "SALE" => "sale.created",
+                "RESTOCK" => "restock.created",
+                _ => throw new InvalidOperationException(
+                    $"Unknown event type: {evt.EventType} / {evt.AggregateType}")
+            }
+        };
+    }
+
+    private async Task ProcessEventAsync(
         OutboxEventV5 evt,
         Container ops,
         PartitionKey pk,
@@ -85,27 +153,33 @@ public sealed class OutboxDispatcherV5 : BackgroundService
     {
         try
         {
-            // 🔒 lock
+            // 1) Lock + mark Processing
             evt.Status = "Processing";
             evt.Attempts++;
             evt.UpdatedAtUtc = DateTime.UtcNow;
-            evt.LockedUntilUtc = DateTime.UtcNow.AddSeconds(30);
+            evt.LockedUntilUtc = DateTime.UtcNow.Add(LockDuration);
 
             await ops.ReplaceItemAsync(evt, evt.Id, pk, cancellationToken: ct);
 
-            // 🔔 SIMULA publicação (RabbitMQ entra no Passo 11)
-            _logger.LogInformation(
-                "📤 Publishing event {EventType} ({AggregateId})",
-                evt.EventType,
-                evt.AggregateId);
+            // 2) Publish to RabbitMQ
+            var routingKey = ResolveRoutingKey(evt);
 
-            // ✅ sucesso
+            _logger.LogInformation(
+                "📤 Publishing {EventType} ({AggregateId}) -> {RoutingKey} (Attempt {Attempt})",
+                evt.EventType, evt.AggregateId, routingKey, evt.Attempts);
+
+            _publisher.Publish(routingKey, evt.Payload, evt.Id);
+
+            // 3) Mark Published
             evt.Status = "Published";
             evt.PublishedAtUtc = DateTime.UtcNow;
             evt.UpdatedAtUtc = DateTime.UtcNow;
             evt.LockedUntilUtc = null;
+            evt.LastError = null;
 
             await ops.ReplaceItemAsync(evt, evt.Id, pk, cancellationToken: ct);
+
+            _logger.LogInformation("✅ Published {EventType} ({AggregateId})", evt.EventType, evt.AggregateId);
         }
         catch (Exception ex)
         {
