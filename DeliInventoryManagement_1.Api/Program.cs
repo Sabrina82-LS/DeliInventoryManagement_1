@@ -3,6 +3,7 @@ using DeliInventoryManagement_1.Api.Data;
 using DeliInventoryManagement_1.Api.Endpoints;
 using DeliInventoryManagement_1.Api.Endpoints.V5;
 using DeliInventoryManagement_1.Api.Messaging;
+using DeliInventoryManagement_1.Api.Messaging.Consumers;
 using DeliInventoryManagement_1.Api.Services;
 using DeliInventoryManagement_1.Api.Services.Outbox;
 using Microsoft.AspNetCore.Http.Json;
@@ -31,8 +32,6 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 // 2) CORS (Blazor -> API)
 // =====================================================
 const string blazorHttps = "https://localhost:7081";
-// Se você NÃO usa Blazor via http, pode remover esta linha.
-// Se usa, ajuste para a porta correta (ex: http://localhost:5081).
 const string blazorHttp = "http://localhost:7081";
 
 builder.Services.AddCors(options =>
@@ -82,24 +81,33 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddSingleton<CosmosContainerFactory>();
 
 // =====================================================
-// 5) RabbitMQ Producer (11.3)
+// 5) RabbitMQ Options + Producer
 // =====================================================
+builder.Services.Configure<RabbitMqOptions>(
+    builder.Configuration.GetSection("RabbitMQ"));
+
 builder.Services.AddSingleton<RabbitMqPublisher>();
 
 // =====================================================
-// 6) Outbox Dispatcher (10.2 + 11.3)
+// 6) Consumers (11.4)
+// =====================================================
+builder.Services.AddHostedService<SaleCreatedConsumer>();
+builder.Services.AddHostedService<RestockCreatedConsumer>();
+
+// =====================================================
+// 7) Outbox Dispatcher (10.2 + 11.3)
 // =====================================================
 builder.Services.AddHostedService<OutboxDispatcherV5>();
 
 var app = builder.Build();
 
 // =====================================================
-// 7) Startup: garante DB + Containers V5
+// 8) Startup: garante DB + Containers V5
 // =====================================================
 await EnsureCosmosSchemaAsync(app);
 
 // =====================================================
-// 8) Middlewares
+// 9) Middlewares
 // =====================================================
 if (app.Environment.IsDevelopment())
 {
@@ -114,9 +122,9 @@ app.UseAuthorization();
 app.MapControllers();
 
 // =====================================================
-// 9) Endpoints V5
+// 10) Endpoints V5
 // =====================================================
-app.MapV5Endpoints();          // inclui Products + Sales (via group /api/v5)
+app.MapV5Endpoints();
 app.MapV5Suppliers();
 app.MapV5RestocksEndpoints();
 app.MapV5OutboxEndpoints();

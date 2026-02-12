@@ -1,13 +1,15 @@
-﻿using DeliInventoryManagement_1.Api.Messaging;
+﻿using DeliInventoryManagement_1.Api.Configuration;
+using DeliInventoryManagement_1.Api.Messaging;
 using DeliInventoryManagement_1.Api.ModelsV5;
 using Microsoft.Azure.Cosmos;
+using Microsoft.Extensions.Options;
 
 namespace DeliInventoryManagement_1.Api.Services.Outbox;
 
 public sealed class OutboxDispatcherV5 : BackgroundService
 {
     private readonly CosmosClient _cosmos;
-    private readonly IConfiguration _cfg;
+    private readonly CosmosOptions _opt;
     private readonly RabbitMqPublisher _publisher;
     private readonly ILogger<OutboxDispatcherV5> _logger;
 
@@ -15,21 +17,25 @@ public sealed class OutboxDispatcherV5 : BackgroundService
     private static readonly TimeSpan LoopDelay = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan LockDuration = TimeSpan.FromSeconds(30);
 
+    // (por enquanto fixo, igual seu projeto)
+    private const string StorePkValue = "STORE#1";
+
     public OutboxDispatcherV5(
         CosmosClient cosmos,
-        IConfiguration cfg,
+        IOptions<CosmosOptions> opt,
         RabbitMqPublisher publisher,
         ILogger<OutboxDispatcherV5> logger)
     {
         _cosmos = cosmos;
-        _cfg = cfg;
+        _opt = opt.Value;
         _publisher = publisher;
         _logger = logger;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("🚀 Outbox Dispatcher started");
+        _logger.LogInformation("🚀 Outbox Dispatcher started (db={DbId}, ops={OpsContainer})",
+            _opt.DatabaseId, _opt.Containers.Operations);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -43,7 +49,7 @@ public sealed class OutboxDispatcherV5 : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Outbox dispatcher error");
+                _logger.LogError(ex, "❌ Outbox dispatcher loop error");
             }
 
             try
@@ -61,30 +67,29 @@ public sealed class OutboxDispatcherV5 : BackgroundService
 
     private async Task DispatchOnce(CancellationToken ct)
     {
-        var dbId = GetDatabaseId();
-        var opsContainerName = GetOperationsContainerName();
+        if (string.IsNullOrWhiteSpace(_opt.DatabaseId))
+            throw new InvalidOperationException("CosmosDb: DatabaseId não configurado.");
 
-        var ops = _cosmos.GetContainer(dbId, opsContainerName);
+        var opsName = _opt.Containers.Operations;
+        if (string.IsNullOrWhiteSpace(opsName))
+            throw new InvalidOperationException("CosmosDb:Containers:Operations não configurado.");
 
-        // (por enquanto fixo, igual seu projeto)
-        var storePkValue = "STORE#1";
-        var pk = new PartitionKey(storePkValue);
+        var ops = _cosmos.GetContainer(_opt.DatabaseId, opsName);
 
-        // ✅ IMPORTANTÍSSIMO:
-        // Cosmos armazena DateTime como string ISO (ex: "2026-02-07T15:52:59.59Z")
-        // então comparamos string ISO com string ISO.
-        var nowIso = DateTime.UtcNow.ToString("O");
+        var pk = new PartitionKey(StorePkValue);
+        var nowUtc = DateTime.UtcNow;
 
+        // Busca só eventos livres (sem lock ou lock expirado) e Pending
         var query = new QueryDefinition(@"
             SELECT * FROM c
             WHERE c.pk = @pk
               AND c.type = 'OutboxEvent'
               AND c.status = 'Pending'
-              AND (NOT IS_DEFINED(c.lockedUntilUtc) OR c.lockedUntilUtc < @nowIso)
+              AND (NOT IS_DEFINED(c.lockedUntilUtc) OR c.lockedUntilUtc = null OR c.lockedUntilUtc < @nowUtc)
             ORDER BY c.updatedAtUtc ASC
         ")
-        .WithParameter("@pk", storePkValue)
-        .WithParameter("@nowIso", nowIso);
+        .WithParameter("@pk", StorePkValue)
+        .WithParameter("@nowUtc", nowUtc);
 
         using var it = ops.GetItemQueryIterator<OutboxEventV5>(
             query,
@@ -100,37 +105,21 @@ public sealed class OutboxDispatcherV5 : BackgroundService
         var page = await it.ReadNextAsync(ct);
 
         if (page.Count == 0)
+        {
+            // (log de debug opcional)
+            // _logger.LogDebug("📭 Outbox: no pending items found");
             return;
+        }
 
-        _logger.LogInformation("📦 Outbox batch fetched: {Count} item(s)", page.Count);
+        _logger.LogInformation("📦 Outbox fetched: {Count} pending item(s)", page.Count);
 
         foreach (var evt in page)
-        {
             await ProcessEventAsync(evt, ops, pk, ct);
-        }
-    }
-
-    private string GetDatabaseId()
-    {
-        var c = _cfg.GetSection("CosmosDb");
-        var dbId = c["DatabaseId"] ?? c["DatabaseName"];
-
-        if (string.IsNullOrWhiteSpace(dbId))
-            throw new InvalidOperationException("CosmosDb: DatabaseId (ou DatabaseName) não configurado.");
-
-        return dbId;
-    }
-
-    private string GetOperationsContainerName()
-    {
-        // tenta pegar do seu appsettings:
-        // CosmosDb:Containers:Operations
-        var opsName = _cfg["CosmosDb:Containers:Operations"];
-        return string.IsNullOrWhiteSpace(opsName) ? "Operations" : opsName;
     }
 
     private static string ResolveRoutingKey(OutboxEventV5 evt)
     {
+        // Preferir EventType, mas fallback por AggregateType
         return evt.EventType switch
         {
             "SaleCreated" => "sale.created",
@@ -139,8 +128,7 @@ public sealed class OutboxDispatcherV5 : BackgroundService
             {
                 "SALE" => "sale.created",
                 "RESTOCK" => "restock.created",
-                _ => throw new InvalidOperationException(
-                    $"Unknown event type: {evt.EventType} / {evt.AggregateType}")
+                _ => throw new InvalidOperationException($"Unknown event type: {evt.EventType} / {evt.AggregateType}")
             }
         };
     }
