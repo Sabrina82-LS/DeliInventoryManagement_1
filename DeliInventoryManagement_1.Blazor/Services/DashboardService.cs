@@ -1,12 +1,10 @@
-﻿using DeliInventoryManagement_1.Blazor.Models;
-using DeliInventoryManagement_1.Blazor.Models.Legacy;
-using DeliInventoryManagement_1.Blazor.Models.V5;
-using System.Net;
+﻿using System.Net;
 using System.Text.Json;
+using DeliInventoryManagement_1.Blazor.Models.V5;
 
 namespace DeliInventoryManagement_1.Blazor.Services;
 
-public class DashboardService : IDashboardService
+public sealed class DashboardService : IDashboardService
 {
     private readonly HttpClient _http;
 
@@ -37,78 +35,57 @@ public class DashboardService : IDashboardService
     }
 
     // -------------------------
-    // V5 (direto)  ✅ (URL com / para evitar problemas de BaseAddress)
+    // V5 Products (API)
     // -------------------------
-    public async Task<List<ProductV5Dto>> GetV5ProductsAsync()
-        => await GetAsync<List<ProductV5Dto>>("/api/v5/products") ?? new();
-
-    public async Task<List<SaleV5Dto>> GetV5SalesAsync()
-        => await GetAsync<List<SaleV5Dto>>("/api/v5/sales") ?? new();
-
-    // ✅ Novo: V5 com filtros (para páginas novas como Restocks/Stock V5)
-    public async Task<List<ProductV5Dto>> GetAllProductsV5Async(string? search = null, string? categoryId = null)
+    public async Task<List<ProductV5Dto>> GetAllProductsAsync(string? search = null, string? categoryId = null)
     {
-        var v5 = await GetV5ProductsAsync();
+        // abordagem segura: busca tudo e filtra no client
+        var products = await GetAsync<List<ProductV5Dto>>("/api/v5/products") ?? new List<ProductV5Dto>();
 
-        IEnumerable<ProductV5Dto> q = v5;
+        IEnumerable<ProductV5Dto> q = products;
 
         if (!string.IsNullOrWhiteSpace(search))
-            q = q.Where(p => (p.Name ?? "").Contains(search, StringComparison.OrdinalIgnoreCase));
+        {
+            var s = search.Trim();
+            q = q.Where(p => (p.Name ?? "").Contains(s, StringComparison.OrdinalIgnoreCase));
+        }
 
         if (!string.IsNullOrWhiteSpace(categoryId))
-            q = q.Where(p => string.Equals(p.CategoryId, categoryId, StringComparison.OrdinalIgnoreCase));
+        {
+            var c = categoryId.Trim();
+            q = q.Where(p => string.Equals(p.CategoryId, c, StringComparison.OrdinalIgnoreCase));
+        }
 
         return q.ToList();
     }
 
-    // -------------------------
-    // Compatibilidade (páginas antigas) 🗃️
-    // -------------------------
-    public async Task<List<ProductDto>> GetAllProductsAsync(string? search = null, string? categoryId = null)
+    public async Task<List<CategoryV5Dto>> GetAllCategoriesAsync()
     {
-        // Usa V5 por baixo, mas devolve DTO antigo (para não quebrar páginas legacy)
-        var q = await GetAllProductsV5Async(search, categoryId);
+        var products = await GetAllProductsAsync();
 
-        return q.Select(p => new ProductDto
-        {
-            Id = p.Id ?? "",
-            Name = p.Name ?? "",
-            CategoryId = p.CategoryId ?? "",
-            CategoryName = p.CategoryName ?? "",
-            Quantity = p.Quantity,
-            Price = p.Price,
-            Cost = p.Cost,
-            ReorderLevel = p.ReorderLevel
-        }).ToList();
-    }
-
-    public async Task<List<CategoryDto>> GetAllCategoriesAsync()
-    {
-        var v5 = await GetV5ProductsAsync();
-
-        // Deriva categories dos produtos
-        return v5
+        return products
             .Where(p => !string.IsNullOrWhiteSpace(p.CategoryId))
             .GroupBy(p => p.CategoryId!, StringComparer.OrdinalIgnoreCase)
-            .Select(g => new CategoryDto
+            .Select(g => new CategoryV5Dto
             {
                 Id = g.Key,
-                Name = g.Select(x => x.CategoryName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? g.Key
+                Name = g.Select(x => x.CategoryName)
+                        .FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? g.Key
             })
             .OrderBy(c => c.Name)
             .ToList();
     }
 
-    public async Task<List<SupplierDto>> GetAllSuppliersAsync()
+    // -------------------------
+    // V5 Sales (API) ✅ ADICIONADO
+    // -------------------------
+    public async Task<List<SaleV5Dto>> GetAllSalesAsync()
     {
-        // Se você ainda não implementou /api/v5/suppliers, retorna vazio (não quebra o app).
-        // ✅ URL com / para evitar problemas de BaseAddress
-        var v5 = await GetAsync<List<SupplierDto>>("/api/v5/suppliers");
-        return v5 ?? new List<SupplierDto>();
+        return await GetAsync<List<SaleV5Dto>>("/api/v5/sales") ?? new List<SaleV5Dto>();
     }
 
     // -------------------------
-    // Dashboard (summary/low stock)
+    // Dashboard summary
     // -------------------------
     public async Task<ProductSummaryDto> GetProductSummaryAsync()
     {
@@ -121,7 +98,7 @@ public class DashboardService : IDashboardService
         };
     }
 
-    public async Task<List<ProductDto>> GetLowStockProductsAsync(int top = 5)
+    public async Task<List<ProductV5Dto>> GetLowStockProductsAsync(int top = 5)
     {
         var products = await GetAllProductsAsync();
 
@@ -132,9 +109,13 @@ public class DashboardService : IDashboardService
             .ToList();
     }
 
-    public async Task<int> GetSupplierCountAsync()
+    // -------------------------
+    // Suppliers (opcional)
+    // -------------------------
+    public Task<int> GetSupplierCountAsync()
     {
-        var suppliers = await GetAllSuppliersAsync();
-        return suppliers.Count;
+        // Se você ainda não tem endpoint /api/v5/suppliers no backend,
+        // deixa 0 para não quebrar o dashboard.
+        return Task.FromResult(0);
     }
 }

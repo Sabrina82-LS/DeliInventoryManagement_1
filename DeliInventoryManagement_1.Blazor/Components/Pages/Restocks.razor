@@ -2,6 +2,8 @@
 @rendermode InteractiveServer
 
 @using DeliInventoryManagement_1.Blazor.Models.V5
+@using DeliInventoryManagement_1.Blazor.Models.CreateLineRequest
+@using DeliInventoryManagement_1.Blazor.Models.CreateRequest
 @using DeliInventoryManagement_1.Blazor.Services
 
 @inject IRestockService RestockService
@@ -211,7 +213,7 @@ else
             errorMessage = null;
 
             // Produtos continuam do Dashboard (ok)
-            products = await DashboardService.GetAllProductsV5Async(null, null);
+            products = await DashboardService.GetAllProductsAsync(null, null);
 
 
             // ✅ Suppliers agora vêm do V5

@@ -120,7 +120,7 @@ else
         {
             isLoading = true;
 
-            var products = await DashboardService.GetAllProductsV5Async();
+            var products = await DashboardService.GetAllProductsAsync();
 
 
             totalProducts = products.Count;
@@ -132,7 +132,7 @@ else
                 .Take(5)
                 .ToList();
 
-            var sales = await DashboardService.GetV5SalesAsync();
+            var sales = await DashboardService.GetAllSalesAsync();
 
             var todayUtc = DateTime.UtcNow.Date;
             todaysSales = sales

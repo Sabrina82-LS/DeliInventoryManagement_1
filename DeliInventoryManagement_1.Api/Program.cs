@@ -128,6 +128,7 @@ app.MapV5Endpoints();
 app.MapV5Suppliers();
 app.MapV5RestocksEndpoints();
 app.MapV5OutboxEndpoints();
+app.MapReportsV5();
 
 app.Run();
 

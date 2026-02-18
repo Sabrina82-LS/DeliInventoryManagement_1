@@ -27,7 +27,7 @@ var apiUri = new Uri(apiBaseUrl, UriKind.Absolute);
 // 3) HttpClient base para a API
 // =============================
 
-// Named client "Api" (centraliza tudo)
+// Named client "Api" (centraliza BaseAddress)
 builder.Services.AddHttpClient("Api", client =>
 {
     client.BaseAddress = apiUri;
@@ -50,6 +50,12 @@ builder.Services.AddHttpClient<IRestockService, RestockService>(client =>
 });
 
 builder.Services.AddHttpClient<ISuppliersServiceV5, SuppliersServiceV5>(client =>
+{
+    client.BaseAddress = apiUri;
+});
+
+// ✅ NOVO: Reports (Sales Report + Restocks Report)
+builder.Services.AddHttpClient<IReportsService, ReportsService>(client =>
 {
     client.BaseAddress = apiUri;
 });

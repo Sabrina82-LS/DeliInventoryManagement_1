@@ -1,4 +1,5 @@
 ﻿using System.Net;
+using System.Globalization;
 using DeliInventoryManagement_1.Api.Data;
 using DeliInventoryManagement_1.Api.Dtos.V5;
 using DeliInventoryManagement_1.Api.ModelsV5;
@@ -45,6 +46,10 @@ public static class V5SalesEndpoints
             var products = factory.Products();
             var ops = factory.Operations();
 
+            // ✅ Use DateTime (seus ModelsV5 usam DateTime, não string)
+            var nowUtc = DateTime.UtcNow;
+            var saleDateUtc = (req.Date ?? nowUtc).ToUniversalTime();
+
             // ============================
             // 1) Normaliza/agrupa linhas
             // ============================
@@ -58,8 +63,7 @@ public static class V5SalesEndpoints
                 return Results.BadRequest("Invalid sale lines.");
 
             // ============================
-            // 2) Carrega produtos e valida estoque (antes do batch)
-            //    + captura ETag p/ concorrência (professor-mode)
+            // 2) Carrega produtos + valida estoque + captura ETag
             // ============================
             var loaded = new Dictionary<string, (ProductV5 Product, string ETag)>(StringComparer.OrdinalIgnoreCase);
 
@@ -85,9 +89,7 @@ public static class V5SalesEndpoints
             }
 
             // ============================
-            // 3) TransactionalBatch no PRODUCTS (ATÔMICO)
-            //    - Se qualquer item falhar, nada é aplicado
-            //    - Se alguém alterou o item após o read => 412 (ETag)
+            // 3) TransactionalBatch no PRODUCTS (ATÔMICO) com ETag
             // ============================
             var productsBatch = products.CreateTransactionalBatch(pk);
 
@@ -100,7 +102,8 @@ public static class V5SalesEndpoints
                     patchOperations: new[]
                     {
                         PatchOperation.Increment("/quantity", -line.Quantity),
-                        PatchOperation.Set("/updatedAtUtc", DateTime.UtcNow)
+                        // ✅ mantém tipo consistente (DateTime)
+                        PatchOperation.Set("/updatedAtUtc", nowUtc)
                     },
                     requestOptions: new TransactionalBatchPatchItemRequestOptions
                     {
@@ -112,8 +115,6 @@ public static class V5SalesEndpoints
 
             if (!productsResp.IsSuccessStatusCode)
             {
-                // 412 = concorrência (alguém mudou o produto depois do seu read)
-                // 404 = algum id não existe no pk (STORE#1)
                 return Results.Problem(
                     title: "Products TransactionalBatch failed",
                     detail: $"Status: {(int)productsResp.StatusCode} {productsResp.StatusCode}",
@@ -128,9 +129,11 @@ public static class V5SalesEndpoints
                 Id = $"SALE#{Guid.NewGuid():N}",
                 Pk = pkValue,
                 Type = "Sale",
-                Date = (req.Date ?? DateTime.UtcNow).ToUniversalTime(),
-                CreatedAtUtc = DateTime.UtcNow,
-                UpdatedAtUtc = DateTime.UtcNow,
+
+                Date = saleDateUtc,
+                CreatedAtUtc = nowUtc,
+                UpdatedAtUtc = nowUtc,
+
                 Lines = grouped.Select(g =>
                 {
                     var p = loaded[g.ProductId].Product;
@@ -147,7 +150,7 @@ public static class V5SalesEndpoints
             sale.Total = sale.Lines.Sum(x => x.UnitPrice * x.Quantity);
 
             // ============================
-            // 5) Cria StockMovement (1 doc com linhas) (Operations)
+            // 5) StockMovement (Operations)
             // ============================
             var movement = new StockMovementV5
             {
@@ -156,8 +159,10 @@ public static class V5SalesEndpoints
                 Type = "StockMovement",
                 Reason = "SALE",
                 RefId = sale.Id,
-                CreatedAtUtc = DateTime.UtcNow,
-                UpdatedAtUtc = DateTime.UtcNow,
+
+                CreatedAtUtc = nowUtc,
+                UpdatedAtUtc = nowUtc,
+
                 Lines = grouped.Select(g => new StockMovementLineV5
                 {
                     ProductId = g.ProductId,
@@ -179,13 +184,13 @@ public static class V5SalesEndpoints
                 AggregateType = "SALE",
                 AggregateId = sale.Id,
 
-                CreatedAtUtc = DateTime.UtcNow,
-                UpdatedAtUtc = DateTime.UtcNow,
+                CreatedAtUtc = nowUtc,
+                UpdatedAtUtc = nowUtc,
 
                 Payload = new
                 {
                     saleId = sale.Id,
-                    date = sale.Date,
+                    date = sale.Date, // DateTime (ok)
                     total = sale.Total,
                     lines = sale.Lines.Select(x => new
                     {
@@ -199,7 +204,6 @@ public static class V5SalesEndpoints
 
             // ============================
             // 7) TransactionalBatch no OPERATIONS
-            //    (sale + movement + outbox juntos)
             // ============================
             var opsBatch = ops.CreateTransactionalBatch(pk)
                 .CreateItem(sale)
@@ -225,5 +229,12 @@ public static class V5SalesEndpoints
             });
         })
         .WithTags("5 - Inventory V5 (Hybrid Cosmos /pk)");
+    }
+
+    // OBS: Mantido caso você use em outro lugar, mas não é necessário aqui
+    private static string ToIsoZ(DateTime utc)
+    {
+        var dt = utc.Kind == DateTimeKind.Utc ? utc : utc.ToUniversalTime();
+        return dt.ToString("yyyy-MM-ddTHH:mm:ss.fffZ", CultureInfo.InvariantCulture);
     }
 }

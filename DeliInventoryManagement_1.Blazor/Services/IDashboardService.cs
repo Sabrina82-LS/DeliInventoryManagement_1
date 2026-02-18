@@ -1,31 +1,20 @@
-﻿using DeliInventoryManagement_1.Blazor.Models;
-using DeliInventoryManagement_1.Blazor.Models.Legacy;
-using DeliInventoryManagement_1.Blazor.Models.V5;
+﻿using DeliInventoryManagement_1.Blazor.Models.V5;
 
 namespace DeliInventoryManagement_1.Blazor.Services;
 
 public interface IDashboardService
 {
-    // =========================
-    // ✅ V5-first (padrão novo)
-    // =========================
-    Task<List<ProductV5Dto>> GetAllProductsV5Async(string? search = null, string? categoryId = null);
-    Task<List<SaleV5Dto>> GetV5SalesAsync();
+    // V5 Products
+    Task<List<ProductV5Dto>> GetAllProductsAsync(string? search = null, string? categoryId = null);
+    Task<List<CategoryV5Dto>> GetAllCategoriesAsync();
 
-    // (Opcional) Se você quiser acessar a lista “crua” sem filtros:
-    // Task<List<ProductV5Dto>> GetV5ProductsAsync();
+    //Adicionar isto:
+    Task<List<SaleV5Dto>> GetAllSalesAsync();
 
-    // =========================
-    // 🗃️ Legacy (páginas antigas)
-    // =========================
-    Task<List<ProductDto>> GetAllProductsAsync(string? search = null, string? categoryId = null);
-    Task<List<CategoryDto>> GetAllCategoriesAsync();
-    Task<List<SupplierDto>> GetAllSuppliersAsync();
-
-    // =========================
-    // Dashboard summaries
-    // =========================
+    // Dashboard summary
     Task<ProductSummaryDto> GetProductSummaryAsync();
-    Task<List<ProductDto>> GetLowStockProductsAsync(int top = 5);
+    Task<List<ProductV5Dto>> GetLowStockProductsAsync(int top = 5);
+
+    // Optional (if you use suppliers on dashboard)
     Task<int> GetSupplierCountAsync();
 }

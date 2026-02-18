@@ -1,4 +1,4 @@
-﻿using DeliInventoryManagement_1.Blazor.Models.V5;
+﻿using DeliInventoryManagement_1.Blazor.Models.CreateRequest;
 
 namespace DeliInventoryManagement_1.Blazor.Services;
 

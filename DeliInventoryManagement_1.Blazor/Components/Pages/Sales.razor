@@ -1,6 +1,7 @@
 ﻿@page "/sales"
-@using DeliInventoryManagement_1.Blazor.Models
-@using DeliInventoryManagement_1.Blazor.Models.Legacy
+@using DeliInventoryManagement_1.Blazor.Models.V5
+@using DeliInventoryManagement_1.Blazor.Models.CreateLineRequest;
+@using DeliInventoryManagement_1.Blazor.Models.CreateRequest;
 @using DeliInventoryManagement_1.Blazor.Services
 @inject IDashboardService DashboardService
 @inject ISalesService SalesService
@@ -132,7 +133,7 @@ else
     private bool isSaving;
     private string? errorMessage;
 
-    private List<ProductDto> products = new();
+    private List<ProductV5Dto> products = new();
 
     private DateTime saleDate = DateTime.Today;
     private string selectedProductId = "";

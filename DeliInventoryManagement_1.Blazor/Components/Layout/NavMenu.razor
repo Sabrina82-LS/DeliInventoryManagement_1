@@ -1,6 +1,6 @@
 ﻿<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">DeliInventoryManagement_1.Blazor</a>
+        <a class="navbar-brand" href="">DeliInventoryManagement_1</a>
     </div>
 </div>
 
@@ -8,42 +8,70 @@
 
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="flex-column">
+
+        <!-- Home -->
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span>
+                Home
             </NavLink>
         </div>
 
-
+        <!-- Dashboard -->
         <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/dashboard" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Dashboard
+            <NavLink class="nav-link" href="dashboard">
+                <span class="bi bi-speedometer2-nav-menu" aria-hidden="true"></span>
+                Dashboard
             </NavLink>
-        </div>      
-              
+        </div>
+
+        <!-- Sales -->
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="sales">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Sales
+                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span>
+                Sales
             </NavLink>
         </div>
 
+        <!-- Stock -->
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="stock">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Stock
+                <span class="bi bi-box-seam-nav-menu" aria-hidden="true"></span>
+                Stock
             </NavLink>
         </div>
 
+        <!-- Restocks -->
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="restocks">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Restocks
+                <span class="bi bi-arrow-repeat-nav-menu" aria-hidden="true"></span>
+                Restocks
             </NavLink>
         </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="reports">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Reports
+        <!-- Reports (Main) -->
+        <div class="nav-item px-3 mt-3">
+            <NavLink class="nav-link" href="reports" Match="NavLinkMatch.Prefix">
+                <span class="bi bi-bar-chart-line-fill-nav-menu" aria-hidden="true"></span>
+                Reports
             </NavLink>
         </div>
+
+        <!-- Reports > Sales -->
+        <div class="nav-item px-3 ms-4">
+            <NavLink class="nav-link" href="reports/sales">
+                <span class="bi bi-graph-up-nav-menu" aria-hidden="true"></span>
+                Sales Report
+            </NavLink>
+        </div>
+
+        <!-- Reports > Restocks -->
+        <div class="nav-item px-3 ms-4">
+            <NavLink class="nav-link" href="reports/restocks">
+                <span class="bi bi-graph-down-nav-menu" aria-hidden="true"></span>
+                Restocks Report
+            </NavLink>
+        </div>
+
     </nav>
 </div>
-

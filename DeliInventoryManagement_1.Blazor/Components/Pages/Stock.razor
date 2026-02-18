@@ -131,7 +131,7 @@ else
             errorMessage = null;
 
             // carrega produtos V5 e deriva categorias
-            var all = await DashboardService.GetAllProductsV5Async();
+            var all = await DashboardService.GetAllProductsAsync();
 
             categories = all
                 .Where(p => !string.IsNullOrWhiteSpace(p.CategoryId))
@@ -168,7 +168,7 @@ else
             var cat = string.IsNullOrWhiteSpace(selectedCategoryId) ? null : selectedCategoryId;
 
             // ✅ V5-first
-            products = await DashboardService.GetAllProductsV5Async(text, cat);
+            products = await DashboardService.GetAllProductsAsync(text, cat);
         }
         catch (Exception ex)
         {

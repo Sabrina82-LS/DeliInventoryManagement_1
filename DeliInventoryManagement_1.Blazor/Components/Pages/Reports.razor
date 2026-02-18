@@ -1,22 +1,31 @@
 ﻿@page "/reports"
-@using DeliInventoryManagement_1.Blazor.Models
-@using DeliInventoryManagement_1.Blazor.Models.Legacy
+@using System.Linq
+@using DeliInventoryManagement_1.Blazor.Models.V5
 @inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
 @rendermode InteractiveServer
 
 <h3>Reports</h3>
 
+<p class="text-muted">
+    Choose a report below or view the Stock report summary.
+</p>
+
+<div class="d-flex flex-wrap gap-2 mb-4">
+    <a class="btn btn-primary" href="/reports/sales">Sales Report</a>
+    <a class="btn btn-primary" href="/reports/restocks">Restocks Report</a>
+</div>
+
 @if (isLoading)
 {
-    <p>Loading reports...</p>
+    <p>Loading stock report...</p>
 }
-else if (!string.IsNullOrEmpty(errorMessage))
+else if (!string.IsNullOrWhiteSpace(errorMessage))
 {
     <div class="alert alert-danger">@errorMessage</div>
 }
 else
 {
-    <h4>Stock Report</h4>
+    <h4 class="mt-3">Stock Report (V5)</h4>
 
     <div class="form-check mb-2">
         <input class="form-check-input" type="checkbox" id="lowStockOnly" @bind="showLowStockOnly" />
@@ -44,24 +53,18 @@ else
             }
         </tbody>
     </table>
-
-    <hr />
-
-    <h4>Sales Report</h4>
-    <p>TODO: implement when Sales API is available.</p>
-
-    <h4>Supplier Report</h4>
-    <p>TODO: implement when Restocks API is available.</p>
 }
 
 @code {
-    bool isLoading;
-    string? errorMessage;
+    private bool isLoading;
+    private string? errorMessage;
 
-    bool showLowStockOnly;
-    List<ProductDto> products = new();
+    private bool showLowStockOnly;
 
-    IEnumerable<ProductDto> FilteredProducts =>
+    // ✅ V5 model
+    private List<ProductV5Dto> products = new();
+
+    private IEnumerable<ProductV5Dto> FilteredProducts =>
         showLowStockOnly
             ? products.Where(p => p.Quantity < p.ReorderLevel)
             : products;
@@ -71,11 +74,13 @@ else
         try
         {
             isLoading = true;
+
+            // ✅ seu DashboardService deve retornar V5 products
             products = await DashboardService.GetAllProductsAsync(null, null);
         }
         catch (Exception ex)
         {
-            errorMessage = $"Error loading reports: {ex.Message}";
+            errorMessage = $"Error loading stock report: {ex.Message}";
         }
         finally
         {

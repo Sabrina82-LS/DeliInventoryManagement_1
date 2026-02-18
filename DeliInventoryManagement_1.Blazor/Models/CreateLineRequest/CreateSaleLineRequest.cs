@@ -1,4 +1,4 @@
-﻿namespace DeliInventoryManagement_1.Blazor.Models;
+﻿namespace DeliInventoryManagement_1.Blazor.Models.CreateLineRequest;
 
 public class CreateSaleLineRequest
 {
