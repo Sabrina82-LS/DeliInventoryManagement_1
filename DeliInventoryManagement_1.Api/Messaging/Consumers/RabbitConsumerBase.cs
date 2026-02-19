@@ -1,8 +1,8 @@
 ﻿using System.Text;
-using DeliInventoryManagement_1.Api.Configuration;
-using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using DeliInventoryManagement_1.Api.Configuration;
+using Microsoft.Extensions.Options;
 
 namespace DeliInventoryManagement_1.Api.Messaging.Consumers;
 
@@ -13,7 +13,6 @@ public abstract class RabbitConsumerBase : BackgroundService
 
     private IConnection? _conn;
     private IModel? _ch;
-    private string _consumerTag = "";
 
     protected RabbitConsumerBase(IOptions<RabbitMqOptions> opt, ILogger logger)
     {
@@ -24,8 +23,9 @@ public abstract class RabbitConsumerBase : BackgroundService
     protected abstract string QueueName { get; }
     protected abstract string RoutingKey { get; }
 
-    // cada consumer implementa como tratar a mensagem
-    protected abstract Task HandleAsync(string messageId, string body, CancellationToken ct);
+    protected virtual int MaxRetries => 5;
+    protected virtual ushort PrefetchCount => 10;
+    protected virtual string DlqQueueName => $"{QueueName}.dlq";
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -43,75 +43,123 @@ public abstract class RabbitConsumerBase : BackgroundService
         _conn = factory.CreateConnection();
         _ch = _conn.CreateModel();
 
-        // garante exchange + queue + bind (idempotente)
-        _ch.ExchangeDeclare(_opt.Exchange, ExchangeType.Topic, durable: true, autoDelete: false);
+        _ch.BasicQos(0, PrefetchCount, global: false);
 
-        _ch.QueueDeclare(
-            queue: QueueName,
-            durable: true,
-            exclusive: false,
-            autoDelete: false,
-            arguments: null);
-
-        _ch.QueueBind(
-            queue: QueueName,
-            exchange: _opt.Exchange,
-            routingKey: RoutingKey);
-
-        // QoS para não pegar um monte de msgs de uma vez
-        _ch.BasicQos(prefetchSize: 0, prefetchCount: 5, global: false);
+        // Garante DLQ
+        _ch.QueueDeclare(queue: DlqQueueName, durable: true, exclusive: false, autoDelete: false);
 
         var consumer = new AsyncEventingBasicConsumer(_ch);
 
         consumer.Received += async (_, ea) =>
         {
-            var msgId = ea.BasicProperties?.MessageId ?? "(no-messageId)";
+            if (stoppingToken.IsCancellationRequested)
+                return;
+
+            if (_ch is null)
+                return;
+
+            var messageId = ea.BasicProperties?.MessageId ?? "(no messageId)";
             var body = Encoding.UTF8.GetString(ea.Body.ToArray());
 
             try
             {
-                await HandleAsync(msgId, body, stoppingToken);
+                await HandleAsync(messageId, body, stoppingToken);
 
-                // ✅ sucesso -> ACK
-                _ch.BasicAck(deliveryTag: ea.DeliveryTag, multiple: false);
+                _ch.BasicAck(ea.DeliveryTag, multiple: false);
 
-                _logger.LogInformation("✅ ACK {Queue} messageId={MessageId}", QueueName, msgId);
+                _logger.LogInformation(
+                    "✅ ACK queue={Queue} messageId={MessageId}",
+                    QueueName, messageId);
             }
             catch (Exception ex)
             {
-                // ✅ falhou -> NACK e requeue (por enquanto)
-                _logger.LogError(ex, "❌ NACK {Queue} messageId={MessageId}", QueueName, msgId);
+                var retryCount = GetRetryCountFromXDeath(ea.BasicProperties?.Headers, QueueName);
 
-                _ch.BasicNack(deliveryTag: ea.DeliveryTag, multiple: false, requeue: true);
+                _logger.LogWarning(ex,
+                    "❌ FAIL queue={Queue} messageId={MessageId} retry={Retry}/{Max}",
+                    QueueName, messageId, retryCount, MaxRetries);
+
+                if (retryCount >= MaxRetries)
+                {
+                    PublishToDlq(_ch, ea);
+
+                    _ch.BasicAck(ea.DeliveryTag, multiple: false);
+
+                    _logger.LogError(
+                        "🧨 MOVED TO DLQ queue={Dlq} messageId={MessageId}",
+                        DlqQueueName, messageId);
+                }
+                else
+                {
+                    // Envia para retry via DLX
+                    _ch.BasicNack(ea.DeliveryTag, multiple: false, requeue: false);
+                }
             }
         };
 
-        _consumerTag = _ch.BasicConsume(
-            queue: QueueName,
-            autoAck: false,
-            consumer: consumer);
+        _ch.BasicConsume(queue: QueueName, autoAck: false, consumer: consumer);
 
-        _logger.LogInformation("🐇 Consumer started: queue={Queue} rk={RoutingKey}", QueueName, RoutingKey);
+        _logger.LogInformation(
+            "🎧 Consumer started queue={Queue} dlq={Dlq} maxRetries={MaxRetries}",
+            QueueName, DlqQueueName, MaxRetries);
 
-        // background service não pode terminar, então segura aqui
-        return Task.Delay(Timeout.Infinite, stoppingToken);
+        return Task.CompletedTask;
     }
 
-    public override Task StopAsync(CancellationToken cancellationToken)
-    {
-        try
-        {
-            if (_ch is not null && !string.IsNullOrWhiteSpace(_consumerTag))
-                _ch.BasicCancel(_consumerTag);
-        }
-        catch { }
+    protected abstract Task HandleAsync(string messageId, string body, CancellationToken ct);
 
+    private void PublishToDlq(IModel ch, BasicDeliverEventArgs ea)
+    {
+        var props = ch.CreateBasicProperties();
+        props.Persistent = true;
+        props.ContentType = ea.BasicProperties?.ContentType ?? "application/json";
+        props.MessageId = ea.BasicProperties?.MessageId;
+        props.Headers = ea.BasicProperties?.Headers;
+
+        ch.BasicPublish(
+            exchange: "",
+            routingKey: DlqQueueName,
+            basicProperties: props,
+            body: ea.Body);
+    }
+
+    private static int GetRetryCountFromXDeath(IDictionary<string, object>? headers, string queueName)
+    {
+        if (headers is null) return 0;
+        if (!headers.TryGetValue("x-death", out var xDeathObj)) return 0;
+        if (xDeathObj is not IList<object> deaths) return 0;
+
+        var total = 0;
+
+        foreach (var d in deaths)
+        {
+            if (d is not IDictionary<string, object> death) continue;
+
+            if (!death.TryGetValue("queue", out var qObj)) continue;
+            var q = qObj?.ToString();
+
+            if (!string.Equals(q, queueName, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (death.TryGetValue("count", out var cObj))
+            {
+                if (cObj is long l) total += (int)l;
+                else if (cObj is int i) total += i;
+                else if (int.TryParse(cObj?.ToString(), out var parsed)) total += parsed;
+            }
+        }
+
+        return total;
+    }
+
+    public override void Dispose()
+    {
         try { _ch?.Close(); } catch { }
         try { _conn?.Close(); } catch { }
 
         _ch?.Dispose();
         _conn?.Dispose();
 
-        return base.StopAsync(cancellationToken);
+        base.Dispose();
     }
 }

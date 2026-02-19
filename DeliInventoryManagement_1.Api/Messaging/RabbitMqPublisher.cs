@@ -1,5 +1,7 @@
 ﻿using System.Text;
 using System.Text.Json;
+using DeliInventoryManagement_1.Api.Configuration;
+using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
@@ -10,9 +12,10 @@ public sealed class RabbitMqPublisher : IDisposable
     private readonly IConnection _conn;
     private readonly IModel _ch;
     private readonly ILogger<RabbitMqPublisher> _logger;
-    private readonly string _exchange;
 
-    // ✅ routing keys/queues que seu projeto usa
+    private readonly RabbitMqOptions _opt;
+
+    // routing keys/queues principais
     private static readonly string[] KnownRoutingKeys =
     [
         "sale.created",
@@ -25,28 +28,19 @@ public sealed class RabbitMqPublisher : IDisposable
         WriteIndented = false
     };
 
-    public RabbitMqPublisher(IConfiguration cfg, ILogger<RabbitMqPublisher> logger)
+    public RabbitMqPublisher(IOptions<RabbitMqOptions> opt, ILogger<RabbitMqPublisher> logger)
     {
+        _opt = opt.Value;
         _logger = logger;
-
-        var r = cfg.GetSection("RabbitMQ");
-
-        var host = r["Host"] ?? "localhost";
-        var port = int.TryParse(r["Port"], out var p) ? p : 5672;
-        var user = r["Username"] ?? "admin";
-        var pass = r["Password"] ?? "admin123";
-
-        _exchange = r["Exchange"] ?? "inventory.events";
 
         var factory = new ConnectionFactory
         {
-            HostName = host,
-            Port = port,
-            UserName = user,
-            Password = pass,
+            HostName = _opt.Host,
+            Port = _opt.Port,
+            UserName = _opt.Username,
+            Password = _opt.Password,
             DispatchConsumersAsync = true,
 
-            // ✅ recovery
             AutomaticRecoveryEnabled = true,
             NetworkRecoveryInterval = TimeSpan.FromSeconds(5)
         };
@@ -54,26 +48,60 @@ public sealed class RabbitMqPublisher : IDisposable
         _conn = factory.CreateConnection();
         _ch = _conn.CreateModel();
 
-        // ✅ se mensagem não for roteada para nenhuma queue, RabbitMQ devolve (return)
         _ch.BasicReturn += OnMessageReturned;
 
-        // 1) Exchange (idempotente)
-        _ch.ExchangeDeclare(exchange: _exchange, type: ExchangeType.Topic, durable: true, autoDelete: false);
-
-        // 2) Declara queues + binds (idempotente)
-        foreach (var rk in KnownRoutingKeys)
-        {
-            // queue name == routing key (simples e consistente)
-            _ch.QueueDeclare(queue: rk, durable: true, exclusive: false, autoDelete: false, arguments: null);
-            _ch.QueueBind(queue: rk, exchange: _exchange, routingKey: rk);
-        }
-
-        // 3) Confirms (boa prática)
+        // ✅ Confirms
         _ch.ConfirmSelect();
 
+        // ✅ Ensure topology (Exchange + Queues + Retry + DLQ)
+        EnsureTopology();
+
         _logger.LogInformation(
-            "🐇 RabbitMQ Publisher connected: {Host}:{Port} exchange={Exchange} bindings=[{Bindings}]",
-            host, port, _exchange, string.Join(", ", KnownRoutingKeys));
+            "🐇 RabbitMQ Publisher connected: {Host}:{Port} exchange={Exchange} retryExchange={RetryExchange} ttlMs={TtlMs}",
+            _opt.Host, _opt.Port, _opt.Exchange, _opt.RetryExchange, _opt.RetryTtlMs);
+    }
+
+    private void EnsureTopology()
+    {
+        // 1) Exchanges
+        _ch.ExchangeDeclare(exchange: _opt.Exchange, type: ExchangeType.Topic, durable: true, autoDelete: false);
+        _ch.ExchangeDeclare(exchange: _opt.RetryExchange, type: ExchangeType.Direct, durable: true, autoDelete: false);
+
+        foreach (var rk in KnownRoutingKeys)
+        {
+            var mainQueue = rk;                 // sale.created
+            var retryQueue = $"{rk}.retry";     // sale.created.retry
+            var dlqQueue = $"{rk}.dlq";         // sale.created.dlq
+
+            // 2) DLQ
+            _ch.QueueDeclare(queue: dlqQueue, durable: true, exclusive: false, autoDelete: false, arguments: null);
+
+            // 3) Retry (TTL + DLX volta pro exchange principal)
+            var retryArgs = new Dictionary<string, object>
+            {
+                ["x-message-ttl"] = _opt.RetryTtlMs,
+                ["x-dead-letter-exchange"] = _opt.Exchange,
+                ["x-dead-letter-routing-key"] = rk
+            };
+
+            _ch.QueueDeclare(queue: retryQueue, durable: true, exclusive: false, autoDelete: false, arguments: retryArgs);
+
+            // 4) Main (DLX aponta para retry exchange)
+            var mainArgs = new Dictionary<string, object>
+            {
+                ["x-dead-letter-exchange"] = _opt.RetryExchange,
+                ["x-dead-letter-routing-key"] = retryQueue
+            };
+
+            _ch.QueueDeclare(queue: mainQueue, durable: true, exclusive: false, autoDelete: false, arguments: mainArgs);
+
+            // 5) Bindings
+            _ch.QueueBind(queue: mainQueue, exchange: _opt.Exchange, routingKey: rk);
+            _ch.QueueBind(queue: retryQueue, exchange: _opt.RetryExchange, routingKey: retryQueue);
+        }
+
+        _logger.LogInformation("✅ RabbitMQ topology ensured (main + retry + dlq) for: {Keys}",
+            string.Join(", ", KnownRoutingKeys));
     }
 
     public void Publish(string routingKey, object payload, string messageId)
@@ -93,25 +121,22 @@ public sealed class RabbitMqPublisher : IDisposable
         props.MessageId = messageId;
         props.Timestamp = new AmqpTimestamp(DateTimeOffset.UtcNow.ToUnixTimeSeconds());
 
-        // ✅ mandatory=true: se não houver fila/binding, dispara BasicReturn (você vê no log)
         _ch.BasicPublish(
-            exchange: _exchange,
+            exchange: _opt.Exchange,
             routingKey: routingKey,
             mandatory: true,
             basicProperties: props,
             body: body);
 
-        // ✅ confirma entrega ao broker
         _ch.WaitForConfirmsOrDie(TimeSpan.FromSeconds(5));
 
         _logger.LogInformation(
             "✅ Published messageId={MessageId} routingKey={RoutingKey} exchange={Exchange}",
-            messageId, routingKey, _exchange);
+            messageId, routingKey, _opt.Exchange);
     }
 
     private void OnMessageReturned(object? sender, BasicReturnEventArgs e)
     {
-        // Isso acontece quando a mensagem NÃO foi roteada para nenhuma fila (sem binding)
         var msgId = e.BasicProperties?.MessageId ?? "(no messageId)";
         _logger.LogError(
             "⚠️ RabbitMQ RETURNED messageId={MessageId} replyCode={ReplyCode} replyText={ReplyText} exchange={Exchange} routingKey={RoutingKey}",
@@ -121,7 +146,6 @@ public sealed class RabbitMqPublisher : IDisposable
     public void Dispose()
     {
         try { _ch.BasicReturn -= OnMessageReturned; } catch { }
-
         try { _ch?.Close(); } catch { }
         try { _conn?.Close(); } catch { }
 

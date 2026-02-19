@@ -16,11 +16,17 @@ public sealed class SaleCreatedConsumer : RabbitConsumerBase
     protected override string QueueName => "sale.created";
     protected override string RoutingKey => "sale.created";
 
+    // opcional: mudar limite aqui se quiser
+    protected override int MaxRetries => 5;
+
     protected override Task HandleAsync(string messageId, string body, CancellationToken ct)
     {
-        // Por enquanto: só logar.
-        // No próximo passo você liga isso com "update stock" / "reorder rules" etc.
         _logger.LogInformation("📩 SALE CONSUMED messageId={MessageId} body={Body}", messageId, body);
+
+        // ✅ opcional: simular erro para testar retry/dlq
+        if (body.Contains("\"quantity\":999", StringComparison.OrdinalIgnoreCase))
+            throw new Exception("Simulated failure (quantity=999)");
+
         return Task.CompletedTask;
     }
 }

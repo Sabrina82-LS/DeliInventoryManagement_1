@@ -31,13 +31,18 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 // =====================================================
 // 2) CORS (Blazor -> API)
 // =====================================================
-const string blazorHttps = "https://localhost:7081";
-const string blazorHttp = "http://localhost:7081";
+const string CorsPolicyName = "BlazorCors";
+
+var allowedOrigins = new[]
+{
+    "https://localhost:7081",
+    "http://localhost:7081"
+};
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("BlazorCors", policy =>
-        policy.WithOrigins(blazorHttps, blazorHttp)
+    options.AddPolicy(CorsPolicyName, policy =>
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod());
 });
@@ -50,19 +55,14 @@ builder.Services.AddAuthorization();
 // =====================================================
 // 4) Cosmos Options + CosmosClient + Factory
 // =====================================================
-builder.Services.Configure<CosmosOptions>(
-    builder.Configuration.GetSection("CosmosDb"));
+builder.Services.Configure<CosmosOptions>(builder.Configuration.GetSection("CosmosDb"));
 
 builder.Services.AddSingleton(sp =>
 {
     var opt = sp.GetRequiredService<IOptions<CosmosOptions>>().Value;
 
-    if (string.IsNullOrWhiteSpace(opt.AccountEndpoint) ||
-        string.IsNullOrWhiteSpace(opt.AccountKey))
-    {
-        throw new InvalidOperationException(
-            "CosmosDb: configure AccountEndpoint e AccountKey no appsettings.json.");
-    }
+    if (string.IsNullOrWhiteSpace(opt.AccountEndpoint) || string.IsNullOrWhiteSpace(opt.AccountKey))
+        throw new InvalidOperationException("CosmosDb: configure AccountEndpoint e AccountKey no appsettings.json.");
 
     var jsonOptions = new JsonSerializerOptions
     {
@@ -83,13 +83,11 @@ builder.Services.AddSingleton<CosmosContainerFactory>();
 // =====================================================
 // 5) RabbitMQ Options + Producer
 // =====================================================
-builder.Services.Configure<RabbitMqOptions>(
-    builder.Configuration.GetSection("RabbitMQ"));
-
+builder.Services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("RabbitMQ"));
 builder.Services.AddSingleton<RabbitMqPublisher>();
 
 // =====================================================
-// 6) Consumers (11.4)
+// 6) Consumers (11.4/11.5)
 // =====================================================
 builder.Services.AddHostedService<SaleCreatedConsumer>();
 builder.Services.AddHostedService<RestockCreatedConsumer>();
@@ -116,7 +114,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("BlazorCors");
+app.UseCors(CorsPolicyName);
 app.UseAuthorization();
 
 app.MapControllers();
@@ -145,9 +143,9 @@ static async Task EnsureCosmosSchemaAsync(WebApplication app)
     if (string.IsNullOrWhiteSpace(opt.DatabaseId))
         throw new InvalidOperationException("CosmosDb: DatabaseId não configurado.");
 
-    var dbResp = await cosmos.CreateDatabaseIfNotExistsAsync(opt.DatabaseId);
-    var db = dbResp.Database;
+    var db = (await cosmos.CreateDatabaseIfNotExistsAsync(opt.DatabaseId)).Database;
 
+    // Containers V5 (Partition Key: /pk)
     await db.CreateContainerIfNotExistsAsync(new ContainerProperties(opt.Containers.Products, "/pk"));
     await db.CreateContainerIfNotExistsAsync(new ContainerProperties(opt.Containers.Suppliers, "/pk"));
     await db.CreateContainerIfNotExistsAsync(new ContainerProperties(opt.Containers.ReorderRules, "/pk"));
