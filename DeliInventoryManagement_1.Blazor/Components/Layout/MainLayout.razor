@@ -1,21 +1,38 @@
 ﻿@inherits LayoutComponentBase
 
 <div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div> 
-
     <main>
-        <div class="top-row px-4">
-            <a href="https://learn.microsoft.com/aspnet/core/" target="_blank">About</a>
-        </div>
+        <!-- Top navigation only (no sidebar) -->
+        <header class="topbar">
+            <!-- Left: Brand / Title -->
+            <div class="topbar-left">
+                <span class="brand">DeliInventoryManagement</span>
+            </div>
 
+            <!-- Center: Main navigation -->
+            <nav class="topbar-center">
+                <NavLink class="toplink" href="" Match="NavLinkMatch.All">Home</NavLink>
+                <NavLink class="toplink" href="dashboard">Dashboard</NavLink>
+                <NavLink class="toplink" href="sales">Sales</NavLink>
+                <NavLink class="toplink" href="stock">Stock</NavLink>
+                <NavLink class="toplink" href="restocks">Restocks</NavLink>
+                <NavLink class="toplink" href="reports">Reports</NavLink>
+            </nav>
+
+            <!-- Right: About -->
+            <div class="topbar-right">
+                <NavLink class="toplink" href="about">About</NavLink>
+            </div>
+        </header>
+
+        <!-- Page content -->
         <article class="content px-4">
             @Body
         </article>
     </main>
 </div>
 
+<!-- Default Blazor error UI -->
 <div id="blazor-error-ui">
     An unhandled error has occurred.
     <a href="" class="reload">Reload</a>

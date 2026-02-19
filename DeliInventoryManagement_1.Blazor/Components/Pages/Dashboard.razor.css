@@ -1,0 +1,135 @@
+﻿/* =========================================
+   Dashboard - Modern / Clean (matches Home)
+   ========================================= */
+
+.dashboard-wrap {
+    padding: 1.25rem 0 2rem;
+}
+
+/* Title */
+.dashboard-title {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    margin: 0 0 1rem;
+    color: #111827;
+}
+
+/* Grid for KPI cards */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    margin-bottom: 1.5rem;
+}
+
+/* KPI Card */
+.kpi-card {
+    border-radius: 16px;
+    padding: 1rem 1.1rem;
+    background: #f8fafc; /* soft gray */
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.05);
+}
+
+.kpi-label {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: rgba(17, 24, 39, 0.65);
+    margin-bottom: 6px;
+}
+
+.kpi-value {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #111827;
+    line-height: 1.1;
+}
+
+.kpi-footnote {
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: rgba(17, 24, 39, 0.55);
+}
+
+/* Main content layout */
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 14px;
+    align-items: start;
+}
+
+/* Panels */
+.panel {
+    border-radius: 16px;
+    padding: 1rem 1.1rem;
+    background: #f8fafc; /* keep consistent with KPI */
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.05);
+}
+
+.panel-title {
+    font-size: 1.05rem;
+    font-weight: 800;
+    margin: 0 0 0.75rem;
+    color: #111827;
+}
+
+/* Quick links as modern colored buttons */
+.quick-links {
+    display: grid;
+    gap: 12px;
+}
+
+    .quick-links ::deep .quick-link {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 44px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 900;
+        color: white;
+        transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+    }
+
+        .quick-links ::deep .quick-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+            filter: brightness(0.97);
+        }
+
+/* Button colors */
+    /* Apply colors to the actual <a> rendered by NavLink */
+    .quick-links ::deep .btn-products {
+        background: #6b7280;
+    }
+
+    .quick-links ::deep .btn-stock {
+        background: linear-gradient(135deg, #f97316, #fb923c);
+    }
+
+
+    .quick-links ::deep .btn-sales {
+        background: #16a34a;
+    }
+
+    .quick-links ::deep .btn-restocks {
+        background: #2563eb;
+    }
+
+    .quick-links ::deep .btn-reports {
+        background: #0ea5e9;
+    }
+
+/* Responsive */
+@media (max-width: 1100px) {
+    .kpi-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}

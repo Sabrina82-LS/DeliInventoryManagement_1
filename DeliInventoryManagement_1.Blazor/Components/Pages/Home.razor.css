@@ -1,0 +1,47 @@
+﻿
+/* =========================================
+   Home background only
+   ========================================= */
+.home-hero {
+    min-height: calc(100vh - 3.5rem);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    background-image: url('/images/healthy-breakfast.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+/* Add a semi-transparent dark panel behind the text */
+.glass-card {
+    max-width: 900px;
+    width: 100%;
+    text-align: center;
+    padding: 2rem 1.5rem;
+    border-radius: 18px;
+    background: rgba(0, 0, 0, 0.35); /* ← adjust this for readability */
+    backdrop-filter: blur(6px);
+}
+
+/* Large hero title */
+.glass-title {
+    font-size: clamp(3rem, 6vw, 5rem);
+    font-weight: 800;
+    color: white;
+    margin: 0;
+}
+
+/* Subtitle */
+.glass-subtitle {
+    font-size: 1.4rem;
+    margin-top: 1rem;
+    color: white;
+}
+
+/* Text shadow for readability */
+.glass-title,
+.glass-subtitle {
+    text-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}

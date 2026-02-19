@@ -1,80 +1,127 @@
+/* =========================================
+   Layout shell (Topbar + Main content)
+   - No sidebar
+   - IMPORTANT: No global background image here
+   ========================================= */
+
 .page {
     position: relative;
     display: flex;
     flex-direction: column;
+    min-height: 100vh;
 }
 
 main {
     flex: 1;
+    display: flex;
+    flex-direction: column;
 }
 
-.sidebar {
-    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+/* Content area */
+.content {
+    flex: 1;
+    padding-top: 1rem;
 }
 
-.top-row {
-    background-color: #f7f7f7;
-    border-bottom: 1px solid #d6d5d5;
-    justify-content: flex-end;
-    height: 3.5rem;
+/* =========================================
+   Top Navigation Bar (improved)
+   ========================================= */
+/* =========================================
+   Top Navigation Bar (force styles on NavLink)
+   ========================================= */
+
+.topbar {
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 18px;
+    background: rgba(255, 255, 255, 0.92);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    backdrop-filter: blur(10px);
+}
+
+.topbar-left {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.brand {
+    font-weight: 800;
+    font-size: 18px;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.topbar-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    padding: 0 16px;
+    flex-wrap: wrap;
+}
+
+.topbar-right {
     display: flex;
     align-items: center;
 }
 
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        white-space: nowrap;
-        margin-left: 1.5rem;
-        text-decoration: none;
+/* IMPORTANT: ::deep ensures the <a> rendered by NavLink is styled */
+.topbar ::deep .toplink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 999px; /* pill */
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 14px;
+    color: rgba(17, 24, 39, 0.85);
+    border: 1px solid rgba(17, 24, 39, 0.12);
+    background: rgba(255, 255, 255, 0.6);
+    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+}
+
+    .topbar ::deep .toplink:hover {
+        background: rgba(255, 165, 0, 0.18);
+        border-color: rgba(255, 165, 0, 0.55);
+        transform: translateY(-1px);
     }
 
-    .top-row ::deep a:hover, .top-row ::deep .btn-link:hover {
-        text-decoration: underline;
+    .topbar ::deep .toplink.active {
+        background: rgba(255, 165, 0, 0.28);
+        border-color: rgba(255, 165, 0, 0.75);
+        color: #111827;
+        transform: none;
     }
 
-    .top-row ::deep a:first-child {
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
+/* Mobile tweaks */
 @media (max-width: 640.98px) {
-    .top-row {
-        justify-content: space-between;
+    .topbar {
+        height: auto;
+        padding: 12px 14px;
+        gap: 10px;
     }
 
-    .top-row ::deep a, .top-row ::deep .btn-link {
-        margin-left: 0;
+    .topbar-center {
+        padding: 0;
+        justify-content: flex-start;
     }
 }
 
-@media (min-width: 641px) {
-    .page {
-        flex-direction: row;
-    }
 
-    .sidebar {
-        width: 250px;
-        height: 100vh;
-        position: sticky;
-        top: 0;
-    }
-
-    .top-row {
-        position: sticky;
-        top: 0;
-        z-index: 1;
-    }
-
-    .top-row.auth ::deep a:first-child {
-        flex: 1;
-        text-align: right;
-        width: 0;
-    }
-
-    .top-row, article {
-        padding-left: 2rem !important;
-        padding-right: 1.5rem !important;
-    }
-}
+/* =========================================
+   Blazor error UI
+   ========================================= */
 
 #blazor-error-ui {
     background: lightyellow;
