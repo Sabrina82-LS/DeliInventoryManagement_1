@@ -1,0 +1,257 @@
+﻿/* =========================================
+   Reports - Modern / Clean (same as Stock)
+   ========================================= */
+
+.reports-wrap {
+    padding: 1.25rem 0 2rem;
+}
+
+.reports-title {
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.5rem;
+    color: #111827;
+}
+
+.muted {
+    color: rgba(17, 24, 39, 0.65);
+}
+
+/* Cards row for Sales/Restocks report */
+.reports-cards {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin: 12px 0 16px;
+}
+
+.panel {
+    border-radius: 16px;
+    padding: 14px 14px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.05);
+}
+
+.panel-danger {
+    border-color: rgba(220, 38, 38, 0.25);
+}
+
+.report-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.report-card-title {
+    font-weight: 900;
+    color: #111827;
+}
+
+/* Section title */
+.reports-section {
+    margin-top: 6px;
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 900;
+    margin: 0 0 12px;
+    color: #111827;
+}
+
+/* Filters layout (same as Stock) */
+.filters-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1.1fr auto;
+    gap: 14px;
+    align-items: end;
+    margin-bottom: 14px;
+}
+
+.filter-card {
+    border-radius: 16px;
+    padding: 14px 14px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.05);
+}
+
+    /* Inputs look cleaner (same as Stock) */
+    .filter-card ::deep input,
+    .filter-card ::deep select {
+        border-radius: 12px;
+        border: 1px solid rgba(17, 24, 39, 0.16);
+        padding: 10px 12px;
+        box-shadow: none;
+    }
+
+        .filter-card ::deep input:focus,
+        .filter-card ::deep select:focus {
+            outline: none;
+            border-color: rgba(249, 115, 22, 0.85);
+            box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.18);
+        }
+
+/* Actions (pill style like Stock) */
+.actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* Toggle */
+.toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    color: rgba(17, 24, 39, 0.75);
+    user-select: none;
+}
+
+    .toggle input {
+        width: 18px;
+        height: 18px;
+        accent-color: #f97316;
+    }
+
+/* Pills (same as Stock) */
+.actions ::deep .btn-pill,
+.btn-pill {
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    font-weight: 900;
+    border: 1px solid rgba(17, 24, 39, 0.14);
+    background: rgba(255, 255, 255, 0.75);
+    color: rgba(17, 24, 39, 0.90);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, filter 120ms ease;
+}
+
+    .actions ::deep .btn-pill:hover,
+    .btn-pill:hover {
+        transform: translateY(-1px);
+        background: rgba(249, 115, 22, 0.16);
+        border-color: rgba(249, 115, 22, 0.55);
+    }
+
+/* Orange pill */
+.btn-apply {
+    background: #f97316;
+    border-color: #f97316;
+    color: #111827;
+}
+
+    .btn-apply:hover {
+        filter: brightness(0.97);
+    }
+
+/* Outline style */
+.btn-outline {
+    background: transparent;
+}
+
+/* Chart panel */
+.chart-panel {
+    margin: 12px 0 14px;
+}
+
+.chart-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+
+.chart-title {
+    font-weight: 900;
+    color: #111827;
+}
+
+/* Mini bar chart */
+.mini-chart {
+    display: grid;
+    gap: 10px;
+}
+
+.bar-row {
+    display: grid;
+    gap: 8px;
+}
+
+.bar-label {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-weight: 800;
+    color: rgba(17, 24, 39, 0.78);
+}
+
+.bar-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 70%;
+}
+
+.bar-track {
+    height: 10px;
+    border-radius: 999px;
+    background: rgba(17,24,39,0.10);
+    overflow: hidden;
+}
+
+.bar-fill {
+    height: 100%;
+    border-radius: 999px;
+    background: #f97316;
+    box-shadow: 0 8px 16px rgba(249,115,22,0.25);
+}
+
+/* Table panel (same as Stock) */
+.table-panel {
+    border-radius: 16px;
+    overflow: hidden;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.05);
+}
+
+    .table-panel ::deep thead th {
+        background: rgba(255, 255, 255, 0.90);
+        font-weight: 900;
+        border-bottom: 1px solid rgba(17, 24, 39, 0.10);
+    }
+
+    .table-panel ::deep tbody tr:hover {
+        background: rgba(249, 115, 22, 0.08);
+    }
+
+.footer-note {
+    margin-top: 10px;
+}
+
+/* Responsive */
+@media (max-width: 1100px) {
+    .reports-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .filters-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .actions {
+        justify-content: flex-start;
+    }
+}

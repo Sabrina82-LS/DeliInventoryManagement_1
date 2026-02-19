@@ -10,34 +10,41 @@
 @inject IDashboardService DashboardService
 @inject ISuppliersServiceV5 SuppliersServiceV5
 
-<h3>Restocks</h3>
+<div class="restocks-wrap">
+    <h1 class="restocks-title">Restocks</h1>
 
-@if (isLoading)
-{
-    <p>Loading products and suppliers...</p>
-}
-else if (!string.IsNullOrEmpty(errorMessage))
-{
-    <div class="alert alert-danger">@errorMessage</div>
-}
-else
-{
-    <!-- ============================
-         CARD: NEW RESTOCK (HEADER)
-         ============================ -->
-    <div class="card mb-3">
-        <div class="card-header">New Restock</div>
+    @if (isLoading)
+    {
+        <section class="panel">
+            <p class="muted">Loading products and suppliers...</p>
+        </section>
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <section class="panel panel-danger" role="alert">
+            <strong>Error:</strong> @errorMessage
+        </section>
+    }
+    else
+    {
+        <!-- ============================
+             CARD 1: NEW RESTOCK
+             ============================ -->
+        <section class="panel">
+            <div class="panel-head">
+                <h2 class="panel-title">New Restock</h2>
+                <p class="panel-subtitle">Select supplier, then add product lines.</p>
+            </div>
 
-        <div class="card-body">
-            <div class="row mb-3">
-                <div class="col-md-3">
+            <div class="form-grid header-grid">
+                <div class="field">
                     <label class="form-label">Date</label>
-                    <input type="date" class="form-control" @bind="restockDate" />
+                    <input type="date" class="form-control" @bind="restockDate" disabled="@isSaving" />
                 </div>
 
-                <div class="col-md-5">
+                <div class="field field-wide">
                     <label class="form-label">Supplier (V5)</label>
-                    <select class="form-select" @bind="selectedSupplierId">
+                    <select class="form-select" @bind="selectedSupplierId" disabled="@isSaving">
                         <option value="">-- Select supplier --</option>
                         @foreach (var s in suppliers)
                         {
@@ -47,15 +54,15 @@ else
                 </div>
             </div>
 
-            <hr />
+            <div class="divider"></div>
 
             <!-- ============================
                  ADD LINE
                  ============================ -->
-            <div class="row mb-3">
-                <div class="col-md-5">
+            <div class="form-grid line-grid">
+                <div class="field field-wide">
                     <label class="form-label">Product</label>
-                    <select class="form-select" @bind="selectedProductId">
+                    <select class="form-select" @bind="selectedProductId" disabled="@isSaving">
                         <option value="">-- Select product --</option>
                         @foreach (var p in products)
                         {
@@ -64,18 +71,20 @@ else
                     </select>
                 </div>
 
-                <div class="col-md-2">
+                <div class="field">
                     <label class="form-label">Quantity</label>
-                    <input type="number" min="1" class="form-control" @bind="lineQuantity" />
+                    <input type="number" min="1" class="form-control" @bind="lineQuantity" disabled="@isSaving" />
                 </div>
 
-                <div class="col-md-2">
+                <div class="field">
                     <label class="form-label">Cost / unit</label>
-                    <input type="number" step="0.01" min="0" class="form-control" @bind="lineUnitCost" />
+                    <input type="number" step="0.01" min="0" class="form-control" @bind="lineUnitCost" disabled="@isSaving" />
                 </div>
 
-                <div class="col-md-3 d-flex align-items-end">
-                    <button class="btn btn-primary w-100" @onclick="AddLine">
+                <div class="field actions-cell">
+                    <button class="btn btn-primary restocks-primary"
+                            @onclick="AddLine"
+                            disabled="@isSaving">
                         Add line
                     </button>
                 </div>
@@ -83,77 +92,91 @@ else
 
             @if (!string.IsNullOrEmpty(lineError))
             {
-                <div class="alert alert-warning mb-0">@lineError</div>
+                <div class="panel panel-warn mt-3" role="alert">
+                    @lineError
+                </div>
             }
-        </div>
-    </div>
+        </section>
 
-    <!-- ============================
-         CARD: RESTOCK LINES
-         ============================ -->
-    <div class="card mb-3">
-        <div class="card-header">Restock Lines</div>
+        <!-- ============================
+             CARD 2: RESTOCK LINES
+             ============================ -->
+        <section class="panel mt-3">
+            <div class="panel-head">
+                <h2 class="panel-title">Restock Lines</h2>
+                <p class="panel-subtitle">Review and remove lines before saving.</p>
+            </div>
 
-        <div class="card-body">
             @if (lines.Count == 0)
             {
-                <p class="mb-0">No lines added yet.</p>
+                <div class="empty-state">
+                    No lines added yet.
+                </div>
             }
             else
             {
-                <table class="table table-sm align-middle">
-                    <thead>
-                        <tr>
-                            <th>Product</th>
-                            <th class="text-end">Qty</th>
-                            <th class="text-end">Unit Cost</th>
-                            <th class="text-end">Line Total</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var l in lines)
-                        {
+                <div class="lines-box">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
                             <tr>
-                                <td>@l.ProductId - @l.ProductName</td>
-                                <td class="text-end">@l.Quantity</td>
-                                <td class="text-end">@l.UnitCost.ToString("0.00")</td>
-                                <td class="text-end">@l.Total.ToString("0.00")</td>
-                                <td class="text-end">
-                                    <button class="btn btn-link btn-sm" @onclick="() => RemoveLine(l)">
-                                        Remove
-                                    </button>
-                                </td>
+                                <th>Product</th>
+                                <th class="text-end">Qty</th>
+                                <th class="text-end">Unit Cost</th>
+                                <th class="text-end">Line Total</th>
+                                <th></th>
                             </tr>
-                        }
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            @foreach (var l in lines)
+                            {
+                                <tr>
+                                    <td>@l.ProductId - @l.ProductName</td>
+                                    <td class="text-end">@l.Quantity</td>
+                                    <td class="text-end">@l.UnitCost.ToString("0.00")</td>
+                                    <td class="text-end">@l.Total.ToString("0.00")</td>
+                                    <td class="text-end">
+                                        <button class="btn btn-link btn-sm"
+                                                @onclick="() => RemoveLine(l)"
+                                                disabled="@isSaving">
+                                            Remove
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
 
-                <div class="text-end fw-bold">
-                    Total cost: @totalCost.ToString("0.00")
+                <div class="total-row">
+                    <span>Total cost:</span>
+                    <span class="total-value">@totalCost.ToString("0.00")</span>
                 </div>
             }
-        </div>
 
-        <div class="card-footer text-end">
-            <button class="btn btn-success"
-                    @onclick="SaveRestockAsync"
-                    disabled="@(!CanSave || isSaving)">
-                @(isSaving ? "Saving..." : "Save Restock")
-            </button>
-        </div>
-    </div>
+            <div class="save-row">
+                <button class="btn btn-success"
+                        @onclick="SaveRestockAsync"
+                        disabled="@(!CanSave || isSaving)">
+                    @(isSaving ? "Saving..." : "Save Restock")
+                </button>
+            </div>
+        </section>
 
-    @if (!string.IsNullOrEmpty(successMessage))
-    {
-        <div class="alert alert-success">@successMessage</div>
+        @if (!string.IsNullOrEmpty(successMessage))
+        {
+            <section class="panel panel-success mt-3" role="status">
+                @successMessage
+            </section>
+        }
+
+        @if (!string.IsNullOrEmpty(saveError))
+        {
+            <section class="panel panel-danger mt-3" role="alert">
+                @saveError
+            </section>
+        }
     }
-
-    @if (!string.IsNullOrEmpty(saveError))
-    {
-        <div class="alert alert-danger">@saveError</div>
-    }
-}
+</div>
 
 @code {
     // ============================
@@ -215,13 +238,8 @@ else
             // Produtos continuam do Dashboard (ok)
             products = await DashboardService.GetAllProductsAsync(null, null);
 
-
             // ✅ Suppliers agora vêm do V5
             suppliers = await SuppliersServiceV5.GetAllAsync();
-
-            // opcional: pré-seleciona o primeiro supplier se quiser
-            // if (suppliers.Count > 0 && string.IsNullOrWhiteSpace(selectedSupplierId))
-            //     selectedSupplierId = suppliers[0].Id;
         }
         catch (Exception ex)
         {
@@ -324,8 +342,6 @@ else
             return;
         }
 
-        // ✅ Monta o request para a API (POST /api/restocks)
-        // (mantive seu DTO atual, só trocando o supplier fonte)
         var request = new CreateRestockRequest
         {
             Date = restockDate,
@@ -344,7 +360,6 @@ else
         {
             isSaving = true;
 
-            // ✅ Chama a API (ela salva Restock e aumenta o stock no Cosmos)
             await RestockService.CreateAsync(request);
 
             successMessage = $"Restock saved ✔️ {lines.Count} line(s) - Total {totalCost:0.00}. Stock updated in Cosmos.";

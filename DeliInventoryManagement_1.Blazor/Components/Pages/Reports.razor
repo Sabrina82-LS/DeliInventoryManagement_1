@@ -4,56 +4,141 @@
 @inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
 @rendermode InteractiveServer
 
-<h3>Reports</h3>
+<div class="reports-wrap">
+    <h1 class="reports-title">Reports</h1>
+    <p class="muted">Choose a report below or view the Stock report summary.</p>
 
-<p class="text-muted">
-    Choose a report below or view the Stock report summary.
-</p>
+    <!-- Report shortcuts (same style as cards) -->
+    <div class="reports-cards">
+        <div class="panel report-card">
+            <div class="report-card-text">
+                <div class="report-card-title">Sales Report</div>
+                <div class="muted">View sales totals and details.</div>
+            </div>
+            <a class="btn-pill btn-apply" href="/reports/sales">Open</a>
+        </div>
 
-<div class="d-flex flex-wrap gap-2 mb-4">
-    <a class="btn btn-primary" href="/reports/sales">Sales Report</a>
-    <a class="btn btn-primary" href="/reports/restocks">Restocks Report</a>
-</div>
-
-@if (isLoading)
-{
-    <p>Loading stock report...</p>
-}
-else if (!string.IsNullOrWhiteSpace(errorMessage))
-{
-    <div class="alert alert-danger">@errorMessage</div>
-}
-else
-{
-    <h4 class="mt-3">Stock Report (V5)</h4>
-
-    <div class="form-check mb-2">
-        <input class="form-check-input" type="checkbox" id="lowStockOnly" @bind="showLowStockOnly" />
-        <label class="form-check-label" for="lowStockOnly">
-            Show low-stock only
-        </label>
+        <div class="panel report-card">
+            <div class="report-card-text">
+                <div class="report-card-title">Restocks Report</div>
+                <div class="muted">View restocks totals and details.</div>
+            </div>
+            <a class="btn-pill btn-apply" href="/reports/restocks">Open</a>
+        </div>
     </div>
 
-    <table class="table table-sm table-striped">
-        <thead>
-            <tr>
-                <th>Product</th>
-                <th>Category</th>
-                <th class="text-end">Quantity</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var p in FilteredProducts)
-            {
-                <tr>
-                    <td>@p.Name</td>
-                    <td>@p.CategoryName</td>
-                    <td class="text-end">@p.Quantity</td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
+    @if (isLoading)
+    {
+        <div class="panel">
+            <p class="muted">Loading stock report...</p>
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="panel panel-danger">
+            <strong>Error:</strong> @errorMessage
+        </div>
+    }
+    else
+    {
+        <div class="reports-section">
+            <h2 class="section-title">Stock Report (V5)</h2>
+
+            <!-- Filters (same layout as Stock page) -->
+            <div class="filters-grid">
+                <div class="filter-card">
+                    <label class="form-label">Search by product name</label>
+                    <input class="form-control"
+                           placeholder="Type a product name..."
+                           @bind="searchText"
+                           @bind:event="oninput" />
+                </div>
+
+                <div class="filter-card">
+                    <label class="form-label">Filter by category</label>
+                    <select class="form-select" @bind="selectedCategoryId">
+                        <option value="">All categories</option>
+                        @foreach (var c in categories)
+                        {
+                            <option value="@c.Id">@c.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="actions">
+                    <label class="toggle">
+                        <input type="checkbox" @bind="showLowStockOnly" />
+                        <span>Show low-stock only</span>
+                    </label>
+
+                    <button type="button" class="btn-pill btn-outline" @onclick="ClearFilters">
+                        Clear
+                    </button>
+                </div>
+            </div>
+
+            <!-- Mini chart (simple bars) -->
+            <div class="panel chart-panel">
+                <div class="chart-head">
+                    <div class="chart-title">Top quantities</div>
+                    <div class="muted">Based on current filters</div>
+                </div>
+
+                @if (!ChartItems.Any())
+                {
+                    <p class="muted mb-0">No data to display.</p>
+                }
+                else
+                {
+                    <div class="mini-chart">
+                        @foreach (var item in ChartItems)
+                        {
+                            var pct = MaxQty == 0 ? 0 : (int)Math.Round((item.Quantity / (double)MaxQty) * 100);
+
+                            <div class="bar-row" title="@item.Name - Qty: @item.Quantity">
+                                <div class="bar-label">
+                                    <span class="bar-name">@item.Name</span>
+                                    <span class="bar-value">@item.Quantity</span>
+                                </div>
+
+                                <div class="bar-track">
+                                    <div class="bar-fill" style="width:@pct%"></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+
+            <!-- Table -->
+            <div class="table-panel">
+                <table class="table table-sm table-striped align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Category</th>
+                            <th class="text-end">Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in FilteredProducts)
+                        {
+                            <tr>
+                                <td>@p.Name</td>
+                                <td>@p.CategoryName</td>
+                                <td class="text-end">@p.Quantity</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="muted footer-note">
+                Showing @FilteredProducts.Count() item(s).
+            </div>
+        </div>
+    }
+</div>
 
 @code {
     private bool isLoading;
@@ -61,13 +146,50 @@ else
 
     private bool showLowStockOnly;
 
+    // Filters
+    private string searchText = "";
+    private string selectedCategoryId = "";
+
     // ✅ V5 model
     private List<ProductV5Dto> products = new();
 
-    private IEnumerable<ProductV5Dto> FilteredProducts =>
-        showLowStockOnly
-            ? products.Where(p => p.Quantity < p.ReorderLevel)
-            : products;
+    // Categories derived from products (same approach as your Stock page)
+    private List<CategoryVm> categories = new();
+
+    private sealed class CategoryVm
+    {
+        public string Id { get; set; } = "";
+        public string Name { get; set; } = "";
+    }
+
+    private IEnumerable<ProductV5Dto> FilteredProducts
+    {
+        get
+        {
+            IEnumerable<ProductV5Dto> query = products;
+
+            if (!string.IsNullOrWhiteSpace(searchText))
+                query = query.Where(p => (p.Name ?? "").Contains(searchText, StringComparison.OrdinalIgnoreCase));
+
+            if (!string.IsNullOrWhiteSpace(selectedCategoryId))
+                query = query.Where(p => string.Equals(p.CategoryId, selectedCategoryId, StringComparison.OrdinalIgnoreCase));
+
+            // ✅ keep your original rule (Quantity < ReorderLevel)
+            if (showLowStockOnly)
+                query = query.Where(p => p.Quantity < p.ReorderLevel);
+
+            return query;
+        }
+    }
+
+    // Mini chart = top 8 from filtered data
+    private List<ProductV5Dto> ChartItems =>
+        FilteredProducts
+            .OrderByDescending(p => p.Quantity)
+            .Take(8)
+            .ToList();
+
+    private int MaxQty => ChartItems.Count == 0 ? 0 : ChartItems.Max(x => x.Quantity);
 
     protected override async Task OnInitializedAsync()
     {
@@ -75,8 +197,19 @@ else
         {
             isLoading = true;
 
-            // ✅ seu DashboardService deve retornar V5 products
             products = await DashboardService.GetAllProductsAsync(null, null);
+
+            categories = products
+                .Where(p => !string.IsNullOrWhiteSpace(p.CategoryId))
+                .GroupBy(p => p.CategoryId!, StringComparer.OrdinalIgnoreCase)
+                .Select(g => new CategoryVm
+                {
+                    Id = g.Key,
+                    Name = g.Select(x => x.CategoryName)
+                            .FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? g.Key
+                })
+                .OrderBy(c => c.Name)
+                .ToList();
         }
         catch (Exception ex)
         {
@@ -86,5 +219,12 @@ else
         {
             isLoading = false;
         }
+    }
+
+    private void ClearFilters()
+    {
+        searchText = "";
+        selectedCategoryId = "";
+        showLowStockOnly = false;
     }
 }

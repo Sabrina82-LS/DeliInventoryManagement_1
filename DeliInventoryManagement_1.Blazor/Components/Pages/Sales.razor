@@ -1,132 +1,154 @@
 ﻿@page "/sales"
 @using DeliInventoryManagement_1.Blazor.Models.V5
-@using DeliInventoryManagement_1.Blazor.Models.CreateLineRequest;
-@using DeliInventoryManagement_1.Blazor.Models.CreateRequest;
+@using DeliInventoryManagement_1.Blazor.Models.CreateLineRequest
+@using DeliInventoryManagement_1.Blazor.Models.CreateRequest
 @using DeliInventoryManagement_1.Blazor.Services
 @inject IDashboardService DashboardService
 @inject ISalesService SalesService
 @inject NavigationManager Nav
 @rendermode InteractiveServer
 
-<h3>Sales</h3>
+<div class="sales-wrap">
+    <h1 class="sales-title">Sales</h1>
 
-@if (isLoading)
-{
-    <p>Loading products...</p>
-}
-else if (!string.IsNullOrEmpty(errorMessage))
-{
-    <div class="alert alert-danger">@errorMessage</div>
-}
-else
-{
-    <div class="card mb-3">
-        <div class="card-header">
-            New Sale
+    @if (isLoading)
+    {
+        <div class="panel">
+            <p class="muted">Loading products...</p>
         </div>
-        <div class="card-body">
-            <div class="row mb-3">
-                <div class="col-md-3">
-                    <label class="form-label">Date</label>
-                    <input type="date" class="form-control" @bind="saleDate" />
+    }
+    else if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="panel panel-danger">
+            <strong>Error:</strong> @errorMessage
+        </div>
+    }
+    else
+    {
+        <div class="sales-grid">
+            <!-- LEFT: New Sale -->
+            <section class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title">New Sale</h2>
+                    <p class="panel-subtitle">Select a product, set quantity and price, then add the line.</p>
                 </div>
 
-                <div class="col-md-5">
-                    <label class="form-label">Product</label>
-                    <select class="form-select" @bind="selectedProductId" disabled="@isSaving">
-                        <option value="">-- Select product --</option>
-                        @foreach (var p in products)
-                        {
-                            <option value="@p.Id">@p.Name (@p.CategoryName)</option>
-                        }
-                    </select>
+                <div class="form-grid">
+                    <div class="field">
+                        <label class="form-label">Date</label>
+                        <input type="date" class="form-control" @bind="saleDate" />
+                    </div>
+
+                    <div class="field field-wide">
+                        <label class="form-label">Product</label>
+                        <select class="form-select" @bind="selectedProductId" disabled="@isSaving">
+                            <option value="">-- Select product --</option>
+                            @foreach (var p in products)
+                            {
+                                <option value="@p.Id">@p.Name (@p.CategoryName)</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label class="form-label">Quantity</label>
+                        <input type="number" min="1" class="form-control" @bind="lineQuantity" disabled="@isSaving" />
+                    </div>
+
+                    <div class="field">
+                        <label class="form-label">Unit Price</label>
+                        <input type="number" step="0.01" min="0.01" class="form-control" @bind="lineUnitPrice" disabled="@isSaving" />
+                    </div>
                 </div>
 
-                <div class="col-md-2">
-                    <label class="form-label">Quantity</label>
-                    <input type="number" min="1" class="form-control" @bind="lineQuantity" disabled="@isSaving" />
+                <div class="actions-row">
+                    <button class="btn btn-primary" @onclick="AddLine" disabled="@isSaving">Add line</button>
                 </div>
 
-                <div class="col-md-2">
-                    <label class="form-label">Unit Price</label>
-                    <input type="number" step="0.01" min="0.01" class="form-control" @bind="lineUnitPrice" disabled="@isSaving" />
+                @if (!string.IsNullOrEmpty(lineError))
+                {
+                    <div class="inline-error" role="alert">@lineError</div>
+                }
+            </section>
+
+            <!-- RIGHT: Sale Lines -->
+            <section class="panel">
+                <div class="panel-head">
+                    <h2 class="panel-title">Sale Lines</h2>
+                    <p class="panel-subtitle">Review and remove lines before saving.</p>
                 </div>
+
+                @if (lines.Count == 0)
+                {
+                    <div class="empty-state">
+                        No lines added yet.
+                    </div>
+                }
+                else
+                {
+                    <div class="lines-box">
+                        <table class="table table-sm align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="text-end">Qty</th>
+                                    <th class="text-end">Unit Price</th>
+                                    <th class="text-end">Line Total</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var l in lines)
+                                {
+                                    <tr>
+                                        <td>@l.ProductName</td>
+                                        <td class="text-end">@l.Quantity</td>
+                                        <td class="text-end">@l.UnitPrice.ToString("0.00")</td>
+                                        <td class="text-end">@l.Total.ToString("0.00")</td>
+                                        <td class="text-end">
+                                            <button class="btn btn-link btn-sm"
+                                                    @onclick="() => RemoveLine(l)"
+                                                    disabled="@isSaving">
+                                                Remove
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="total-row">
+                        <span>Total:</span>
+                        <span class="total-value">@lines.Sum(l => l.Total).ToString("0.00")</span>
+                    </div>
+                }
+
+                <div class="save-row">
+                    <button class="btn btn-success"
+                            @onclick="SaveSaleAsync"
+                            disabled="@(lines.Count == 0 || isSaving)">
+                        @(isSaving ? "Saving..." : "Save Sale")
+                    </button>
+                </div>
+            </section>
+        </div>
+
+        @if (!string.IsNullOrEmpty(saveMessage))
+        {
+            <div class="panel panel-info mt-3">
+                @saveMessage
             </div>
+        }
 
-            <button class="btn btn-primary" @onclick="AddLine" disabled="@isSaving">Add line</button>
-
-            @if (!string.IsNullOrEmpty(lineError))
-            {
-                <div class="text-danger mt-2">@lineError</div>
-            }
-        </div>
-    </div>
-
-    <div class="card mb-3">
-        <div class="card-header">
-            Sale Lines
-        </div>
-        <div class="card-body">
-            @if (lines.Count == 0)
-            {
-                <p>No lines added yet.</p>
-            }
-            else
-            {
-                <table class="table table-sm">
-                    <thead>
-                        <tr>
-                            <th>Product</th>
-                            <th class="text-end">Qty</th>
-                            <th class="text-end">Unit Price</th>
-                            <th class="text-end">Line Total</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var l in lines)
-                        {
-                            <tr>
-                                <td>@l.ProductName</td>
-                                <td class="text-end">@l.Quantity</td>
-                                <td class="text-end">@l.UnitPrice.ToString("0.00")</td>
-                                <td class="text-end">@l.Total.ToString("0.00")</td>
-                                <td class="text-end">
-                                    <button class="btn btn-link btn-sm"
-                                            @onclick="() => RemoveLine(l)"
-                                            disabled="@isSaving">
-                                        Remove
-                                    </button>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
-
-                <div class="text-end fw-bold">
-                    Total: @lines.Sum(l => l.Total).ToString("0.00")
-                </div>
-            }
-        </div>
-        <div class="card-footer text-end">
-            <button class="btn btn-success"
-                    @onclick="SaveSaleAsync"
-                    disabled="@(lines.Count == 0 || isSaving)">
-                @(isSaving ? "Saving..." : "Save Sale")
-            </button>
-        </div>
-    </div>
-
-    @if (!string.IsNullOrEmpty(saveMessage))
-    {
-        <div class="alert alert-info">@saveMessage</div>
+        @if (!string.IsNullOrEmpty(saveError))
+        {
+            <div class="panel panel-danger mt-3">
+                @saveError
+            </div>
+        }
     }
-
-    @if (!string.IsNullOrEmpty(saveError))
-    {
-        <div class="alert alert-danger">@saveError</div>
-    }
-}
+</div>
 
 @code {
     private bool isLoading;
@@ -210,7 +232,7 @@ else
             return;
         }
 
-        // (Opcional) validação local de stock, se ProductDto tiver Quantity:
+        // (Optional) local validation of stock if ProductDto has Quantity:
         // if (product.Quantity < lineQuantity) { lineError = $"Not enough stock. Available={product.Quantity}"; return; }
 
         lines.Add(new SaleLineVm
@@ -264,17 +286,16 @@ else
 
             var result = await SalesService.CreateSaleAsync(req);
 
-            // ✅ Atualiza mensagem
+            // ✅ message
             saveMessage = $"✅ Sale saved in API. Id: {result.SaleId} | Total: {result.Total:0.00}";
 
-            // ✅ limpa após salvar
+            // ✅ clear after saving
             lines.Clear();
 
-            // ✅ OPÇÃO 1: recarrega produtos do servidor (já vem com Quantity atualizado)
+            // ✅ reload products (Quantity updated)
             await LoadProductsAsync();
 
-            // ✅ OPÇÃO 1 (extra): ir direto para Stock já atualizado
-            // Se não quiser navegar automaticamente, basta comentar a linha abaixo.
+            // ✅ navigate to Stock
             Nav.NavigateTo("/stock");
         }
         catch (Exception ex)
