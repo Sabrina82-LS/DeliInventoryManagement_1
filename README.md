@@ -1,90 +1,121 @@
 **How to Run This Project **
 
-✔️ 1. Install the Required Tools
+✅ 1. Install Required Software
+🖥 Visual Studio 2022 Community
 
-Before running the project, install these free tools:
+Download:
+https://visualstudio.microsoft.com/
 
-A. Install Software
+During installation, select:
 
-Visual Studio 2022 Community
-Download: https://visualstudio.microsoft.com/
+✔️ ASP.NET and Web Development
 
-When installing, ensure the workload “ASP.NET and Web Development” is selected.
+⚙ .NET 8 SDK
 
-Azure Cosmos DB Emulator
-Download: https://learn.microsoft.com/azure/cosmos-db/local-emulator
+Download:
+https://dotnet.microsoft.com/download
 
-B. Install the Required NuGet Packages
+Verify installation:
+dotnet --version
 
-These packages are needed for the project to run correctly.
+🐳 Docker Desktop
+Download:
+https://www.docker.com/products/docker-desktop/
 
-You do NOT need coding skills — just follow the steps:
+After installation, ensure Docker is running.
+Verify:
+docker --version
 
-Open the project in Visual Studio
+☁ Azure Cosmos DB Emulator
+Download:
+https://learn.microsoft.com/azure/cosmos-db/local-emulator
 
-On the right panel (Solution Explorer), right-click the project DeliInventoryManagement_1.Api
+After installation:
+Start the Emulator
+Open:
+https://localhost:8081/_explorer/index.html
 
-Click Manage NuGet Packages…
 
-Go to the Browse tab
+Download and install the certificate as Trusted Root
+📥 2. Clone the Repository (Visual Studio)
+Open Visual Studio
 
-Search for and install:
+Click Git → Clone Repository
+Paste the repository URL:
+https://github.com/Sabrina82-LS/DeliInventoryManagement_1.git
+Choose a local folder and click Clone
+The solution will open automatically.
 
-✔️ Microsoft.Azure.Cosmos
+🐇 3. Start RabbitMQ (Docker)
+Open a terminal in the project root (where docker-compose.yml is located).
+Run:
+docker compose up -d
 
-Used to connect to the Cosmos Database.
+Verify containers:
+docker ps
 
-✔️ Microsoft.AspNetCore.OpenApi
+🔐 Open RabbitMQ Management UI
+Open in browser:
+http://localhost:15672
+Login:
+Username: admin
+Password: admin123
 
-Used for Swagger UI documentation.
 
-No additional setup is needed — Visual Studio will handle the installation for you.
+If login fails, reset:
+docker compose down -v
+docker compose up -d
 
-✔️ 2. Start the Cosmos DB Emulator
+☁ 4. Ensure Cosmos Emulator is Running
+Before starting the API, make sure the Cosmos DB Emulator is open.
 
-Open the Azure Cosmos DB Emulator from your desktop or Start Menu.
-
-Keep the Emulator running in the background.
-
-Make sure both projects will run
-
-In Visual Studio:
-Click Solution → Properties → Startup Projects
-Select:
+▶ 5. Configure Startup Projects (Visual Studio)
+Right-click the Solution
+Select Properties
+Choose:
 
 ✔️ Multiple startup projects
-
-Set both:
-
+Set:
 DeliInventoryManagement_1.Api → Start
-
 DeliInventoryManagement_1.Blazor → Start
-
 Click Apply → OK
 
-✔️ 3. Open and Run the Project
+▶ 6. Run the Application
+Press:
+F5
 
-Open the project folder in Visual Studio
+or click the green ▶ Run button.
+Two browser windows will open:
+1️⃣ Swagger UI (API) – for testing endpoints
+2️⃣ Blazor Web App – main application
 
-Press F5 or click the green ▶️ Run button
+🐇 RabbitMQ Behavior (Automatic)
+When the API starts, it automatically:
+Connects to RabbitMQ
+Creates exchange
+Creates main queues
+Creates retry queues
+Creates dead letter queues
+Starts background consumers
+Starts Outbox Dispatcher
+Queues created automatically:
+Main Queues
+sale.created
+restock.created
+Retry Queues
+sale.created.retry
+restock.created.retry
+Dead Letter Queues
+sale.created.dlq
+restock.created.dlq
 
-You will see two browser tabs open:
+🛠 Troubleshooting
+Reset RabbitMQ:
+docker compose down -v
+docker compose up -d
 
-API (Swagger UI) – for developers (can be ignored by normal users)
-Blazor Web App – the main application
+Check running containers:
+docker ps
 
-Testing the System (Using Only Your Browser)
-
-✔️Swagger UI lets you test everything without needing code.
-Products (Version 1): View products, Add a new product, Update a product, Delete a product, View summary information.
-Categories (Version 2): Add, edit, delete categories, View all categories, View category details.
-Suppliers (Version 3): Add suppliers, Update supplier contact info, Delete suppliers, View all suppliers.
-
-✔️Blazor Web App – the main application:
-Dashboard
-Stock
-Products
-Suppliers
-Sales
-Restocks
-Reports
+View Rabbit logs:
+docker logs rabbitmq
