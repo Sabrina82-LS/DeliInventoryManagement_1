@@ -1,119 +1,103 @@
 ﻿@page "/reports/sales"
-@using DeliInventoryManagement_1.Blazor.Models
-@using DeliInventoryManagement_1.Blazor.Models.V5
 @using DeliInventoryManagement_1.Blazor.Models.Report
-@inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
 @inject DeliInventoryManagement_1.Blazor.Services.IReportsService ReportsService
 @rendermode InteractiveServer
 
-<h3>Sales Report</h3>
+<div class="salesreport-wrap">
+    <h1 class="salesreport-title">Sales Report</h1>
+    <p class="muted">Filter by date range and review totals and line details.</p>
 
+    <!-- Filters -->
+    <div class="filters-grid">
+        <div class="filter-card">
+            <label class="form-label">From</label>
+            <input type="date" class="form-control" @bind="salesFrom" />
+        </div>
 
-<!-- =========================
-        SALES REPORT
-        ========================= -->
-<h4>Sales Report</h4>
+        <div class="filter-card">
+            <label class="form-label">To</label>
+            <input type="date" class="form-control" @bind="salesTo" />
+        </div>
 
-<div class="row g-2 mb-3">
-    <div class="col-md-3">
-        <label class="form-label">From</label>
-        <input type="date" class="form-control" @bind="salesFrom" />
+        <div class="actions">
+            <button class="btn-pill btn-apply"
+                    @onclick="LoadSales"
+                    disabled="@salesLoading">
+                @(salesLoading ? "Loading..." : "Load Sales")
+            </button>
+
+            <button class="btn-pill btn-outline"
+                    @onclick="ClearSales"
+                    disabled="@salesLoading">
+                Clear
+            </button>
+        </div>
     </div>
-    <div class="col-md-3">
-        <label class="form-label">To</label>
-        <input type="date" class="form-control" @bind="salesTo" />
-    </div>
-    <div class="col-md-3 d-flex align-items-end">
-        <button class="btn btn-primary w-100" @onclick="LoadSales" disabled="@salesLoading">
-            @(salesLoading ? "Loading..." : "Load Sales")
-        </button>
-    </div>
-    <div class="col-md-3 d-flex align-items-end">
-        <button class="btn btn-outline-secondary w-100" @onclick="ClearSales" disabled="@salesLoading">
-            Clear
-        </button>
-    </div>
+
+    @if (!string.IsNullOrWhiteSpace(salesError))
+    {
+        <div class="panel panel-danger">
+            <strong>Error:</strong> @salesError
+        </div>
+    }
+    else if (!salesLoading && sales.Count == 0)
+    {
+        <div class="panel">
+            <p class="muted mb-0">No sales found for this period.</p>
+        </div>
+    }
+    else if (sales.Count > 0)
+    {
+        <!-- Summary cards -->
+        <div class="summary-grid">
+            <div class="panel summary-card">
+                <div class="summary-label">Total items sold</div>
+                <div class="summary-value">@sales.Sum(x => x.Quantity)</div>
+            </div>
+
+            <div class="panel summary-card">
+                <div class="summary-label">Total revenue</div>
+                <div class="summary-value">€ @sales.Sum(x => x.Total).ToString("0.00")</div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-panel">
+            <table class="table table-sm table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Product</th>
+                        <th class="text-end">Qty</th>
+                        <th class="text-end">Unit €</th>
+                        <th class="text-end">Total €</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var s in sales.OrderByDescending(x => x.Date))
+                    {
+                        <tr>
+                            <td>@s.Date.ToString("yyyy-MM-dd")</td>
+                            <td>@s.ProductName</td>
+                            <td class="text-end">@s.Quantity</td>
+                            <td class="text-end">@s.UnitPrice.ToString("0.00")</td>
+                            <td class="text-end">@s.Total.ToString("0.00")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
 </div>
 
-@if (!string.IsNullOrWhiteSpace(salesError))
-{
-    <div class="alert alert-danger">@salesError</div>
-}
-else if (sales.Count == 0)
-{
-    <p class="text-muted">No sales found for this period.</p>
-}
-else
-{
-    <div class="mb-2">
-        <strong>Total items sold:</strong> @sales.Sum(x => x.Quantity)
-        <span class="mx-3"></span>
-        <strong>Total revenue:</strong> € @sales.Sum(x => x.Total)
-    </div>
-
-    <table class="table table-sm table-striped">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Product</th>
-                <th class="text-end">Qty</th>
-                <th class="text-end">Unit €</th>
-                <th class="text-end">Total €</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var s in sales.OrderByDescending(x => x.Date))
-            {
-                <tr>
-                    <td>@s.Date.ToString("yyyy-MM-dd")</td>
-                    <td>@s.ProductName</td>
-                    <td class="text-end">@s.Quantity</td>
-                    <td class="text-end">@s.UnitPrice</td>
-                    <td class="text-end">@s.Total</td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
-
-<hr />
-
 @code {
-    private bool isLoading;
-    private string? errorMessage;
-
-    // Stock
-    private bool showLowStockOnly;
-    private List<ProductV5Dto> products = new();
-
-    private IEnumerable<ProductV5Dto> FilteredProducts =>
-        showLowStockOnly ? products.Where(p => p.Quantity < p.ReorderLevel) : products;
-
-    // Sales
     private DateTime? salesFrom;
     private DateTime? salesTo;
+
     private bool salesLoading;
     private string? salesError;
+
     private List<SaleReportItem> sales = new();
-
-    
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            isLoading = true;
-            products = await DashboardService.GetAllProductsAsync(null, null);
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error loading reports: {ex.Message}";
-        }
-        finally
-        {
-            isLoading = false;
-        }
-    }
 
     private async Task LoadSales()
     {
@@ -141,6 +125,4 @@ else
         salesError = null;
         sales = new();
     }
-
-    
 }

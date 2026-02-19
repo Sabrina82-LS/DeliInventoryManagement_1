@@ -1,116 +1,103 @@
 ﻿@page "/reports/restocks"
-
-@using DeliInventoryManagement_1.Blazor.Models.V5
 @using DeliInventoryManagement_1.Blazor.Models.Report
-@inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
 @inject DeliInventoryManagement_1.Blazor.Services.IReportsService ReportsService
 @rendermode InteractiveServer
-<h3>Restocks Report</h3>
 
-<!-- =========================
-         RESTOCKS REPORT
-         ========================= -->
-<h4>Restocks Report</h4>
+<div class="restocksreport-wrap">
+    <h1 class="restocksreport-title">Restocks Report</h1>
+    <p class="muted">Filter by date range and review totals and line details.</p>
 
-<div class="row g-2 mb-3">
-    <div class="col-md-3">
-        <label class="form-label">From</label>
-        <input type="date" class="form-control" @bind="restocksFrom" />
+    <!-- Filters -->
+    <div class="filters-grid">
+        <div class="filter-card">
+            <label class="form-label">From</label>
+            <input type="date" class="form-control" @bind="restocksFrom" />
+        </div>
+
+        <div class="filter-card">
+            <label class="form-label">To</label>
+            <input type="date" class="form-control" @bind="restocksTo" />
+        </div>
+
+        <div class="actions">
+            <button class="btn-pill btn-apply"
+                    @onclick="LoadRestocks"
+                    disabled="@restocksLoading">
+                @(restocksLoading ? "Loading..." : "Load Restocks")
+            </button>
+
+            <button class="btn-pill btn-outline"
+                    @onclick="ClearRestocks"
+                    disabled="@restocksLoading">
+                Clear
+            </button>
+        </div>
     </div>
-    <div class="col-md-3">
-        <label class="form-label">To</label>
-        <input type="date" class="form-control" @bind="restocksTo" />
-    </div>
-    <div class="col-md-3 d-flex align-items-end">
-        <button class="btn btn-primary w-100" @onclick="LoadRestocks" disabled="@restocksLoading">
-            @(restocksLoading ? "Loading..." : "Load Restocks")
-        </button>
-    </div>
-    <div class="col-md-3 d-flex align-items-end">
-        <button class="btn btn-outline-secondary w-100" @onclick="ClearRestocks" disabled="@restocksLoading">
-            Clear
-        </button>
-    </div>
+
+    @if (!string.IsNullOrWhiteSpace(restocksError))
+    {
+        <div class="panel panel-danger">
+            <strong>Error:</strong> @restocksError
+        </div>
+    }
+    else if (!restocksLoading && restocks.Count == 0)
+    {
+        <div class="panel">
+            <p class="muted mb-0">No restocks found for this period.</p>
+        </div>
+    }
+    else if (restocks.Count > 0)
+    {
+        <!-- Summary cards -->
+        <div class="summary-grid">
+            <div class="panel summary-card">
+                <div class="summary-label">Total quantity added</div>
+                <div class="summary-value">@restocks.Sum(x => x.QuantityAdded)</div>
+            </div>
+
+            <div class="panel summary-card">
+                <div class="summary-label">Total cost</div>
+                <div class="summary-value">€ @restocks.Sum(x => x.Cost).ToString("0.00")</div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-panel">
+            <table class="table table-sm table-striped align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Product</th>
+                        <th>Supplier</th>
+                        <th class="text-end">Qty Added</th>
+                        <th class="text-end">Cost €</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in restocks.OrderByDescending(x => x.Date))
+                    {
+                        <tr>
+                            <td>@r.Date.ToString("yyyy-MM-dd")</td>
+                            <td>@r.ProductName</td>
+                            <td>@r.SupplierName</td>
+                            <td class="text-end">@r.QuantityAdded</td>
+                            <td class="text-end">@r.Cost.ToString("0.00")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
 </div>
 
-@if (!string.IsNullOrWhiteSpace(restocksError))
-{
-    <div class="alert alert-danger">@restocksError</div>
-}
-else if (restocks.Count == 0)
-{
-    <p class="text-muted">No restocks found for this period.</p>
-}
-else
-{
-    <div class="mb-2">
-        <strong>Total quantity added:</strong> @restocks.Sum(x => x.QuantityAdded)
-        <span class="mx-3"></span>
-        <strong>Total cost:</strong> € @restocks.Sum(x => x.Cost)
-    </div>
-
-    <table class="table table-sm table-striped">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Product</th>
-                <th>Supplier</th>
-                <th class="text-end">Qty Added</th>
-                <th class="text-end">Cost €</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach (var r in restocks.OrderByDescending(x => x.Date))
-            {
-                <tr>
-                    <td>@r.Date.ToString("yyyy-MM-dd")</td>
-                    <td>@r.ProductName</td>
-                    <td>@r.SupplierName</td>
-                    <td class="text-end">@r.QuantityAdded</td>
-                    <td class="text-end">@r.Cost</td>
-                </tr>
-            }
-        </tbody>
-    </table>
-}
-
 @code {
-    private bool isLoading;
-    private string? errorMessage;
-
-    // Stock
-    private bool showLowStockOnly;
-    private List<ProductV5Dto> products = new();
-
-    private IEnumerable<ProductV5Dto> FilteredProducts =>
-        showLowStockOnly ? products.Where(p => p.Quantity < p.ReorderLevel) : products;
-
-
-    // Restocks
     private DateTime? restocksFrom;
     private DateTime? restocksTo;
+
     private bool restocksLoading;
     private string? restocksError;
+
     private List<RestockReportItem> restocks = new();
-
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            isLoading = true;
-            products = await DashboardService.GetAllProductsAsync(null, null);
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error loading reports: {ex.Message}";
-        }
-        finally
-        {
-            isLoading = false;
-        }
-    }
-
-   
 
     private async Task LoadRestocks()
     {
@@ -139,4 +126,3 @@ else
         restocks = new();
     }
 }
-

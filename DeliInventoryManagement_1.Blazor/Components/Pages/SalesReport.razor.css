@@ -1,0 +1,148 @@
+﻿/* =========================================
+   Sales Report - Modern / Clean (like Stock)
+   ========================================= */
+
+.salesreport-wrap {
+    padding: 1.25rem 0 2rem;
+}
+
+.salesreport-title {
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    margin: 0 0 0.5rem;
+    color: #111827;
+}
+
+.muted {
+    color: rgba(17, 24, 39, 0.65);
+}
+
+/* Filters layout (same style as Stock) */
+.filters-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 14px;
+    align-items: end;
+    margin: 12px 0 14px;
+}
+
+.filter-card,
+.panel {
+    border-radius: 16px;
+    padding: 14px 14px;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.05);
+}
+
+.panel-danger {
+    border-color: rgba(220, 38, 38, 0.25);
+}
+
+/* Inputs */
+.filter-card ::deep input {
+    border-radius: 12px;
+    border: 1px solid rgba(17, 24, 39, 0.16);
+    padding: 10px 12px;
+    box-shadow: none;
+}
+
+    .filter-card ::deep input:focus {
+        outline: none;
+        border-color: rgba(249, 115, 22, 0.85);
+        box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.18);
+    }
+
+/* Action buttons (pill style) */
+.actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+}
+
+.btn-pill {
+    height: 40px;
+    padding: 0 14px;
+    border-radius: 999px;
+    font-weight: 900;
+    border: 1px solid rgba(17, 24, 39, 0.14);
+    background: rgba(255, 255, 255, 0.75);
+    color: rgba(17, 24, 39, 0.90);
+    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease, filter 120ms ease;
+}
+
+    .btn-pill:hover {
+        transform: translateY(-1px);
+        background: rgba(249, 115, 22, 0.16);
+        border-color: rgba(249, 115, 22, 0.55);
+    }
+
+.btn-apply {
+    background: #f97316;
+    border-color: #f97316;
+    color: #111827;
+}
+
+    .btn-apply:hover {
+        filter: brightness(0.97);
+    }
+
+.btn-outline {
+    background: transparent;
+}
+
+/* Summary cards */
+.summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    margin: 12px 0 14px;
+}
+
+.summary-label {
+    font-weight: 900;
+    color: rgba(17, 24, 39, 0.65);
+    margin-bottom: 6px;
+}
+
+.summary-value {
+    font-size: 1.8rem;
+    font-weight: 900;
+    color: #111827;
+}
+
+/* Table panel */
+.table-panel {
+    border-radius: 16px;
+    overflow: hidden;
+    background: #f8fafc;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.05);
+}
+
+    .table-panel ::deep thead th {
+        background: rgba(255, 255, 255, 0.90);
+        font-weight: 900;
+        border-bottom: 1px solid rgba(17, 24, 39, 0.10);
+    }
+
+    .table-panel ::deep tbody tr:hover {
+        background: rgba(249, 115, 22, 0.08);
+    }
+
+/* Responsive */
+@media (max-width: 1100px) {
+    .filters-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .actions {
+        justify-content: flex-start;
+    }
+
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
+}
