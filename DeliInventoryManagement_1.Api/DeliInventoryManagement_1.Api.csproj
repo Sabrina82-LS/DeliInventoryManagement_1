@@ -25,9 +25,4 @@
     </PackageReference>
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Tests\Consumers\" />
-    <Folder Include="Tests\Services\" />
-  </ItemGroup>
-
 </Project>
