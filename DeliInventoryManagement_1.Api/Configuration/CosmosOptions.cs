@@ -19,4 +19,5 @@ public sealed class CosmosContainers
     public string Suppliers { get; set; } = "Suppliers";
     public string ReorderRules { get; set; } = "ReorderRules";
     public string Operations { get; set; } = "Operations";
+    public string Users { get; set; } = "Users";
 }

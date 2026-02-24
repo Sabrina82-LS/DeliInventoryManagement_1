@@ -10,8 +10,13 @@ public static class V5ProductsEndpoints
 {
     public static void MapV5Products(this RouteGroupBuilder v5)
     {
+        // ✅ Products = AdminOnly (Admin tem acesso total)
+        var group = v5.MapGroup("/products")
+            .WithTags("5 - Inventory V5 (Hybrid Cosmos /pk)")
+            .RequireAuthorization("AdminOnly");
+
         // GET /api/v5/products
-        v5.MapGet("/products", async (CosmosContainerFactory factory) =>
+        group.MapGet("", async (CosmosContainerFactory factory) =>
         {
             var container = factory.Products();
             var pk = CosmosContainerFactory.StorePk;
@@ -30,11 +35,10 @@ public static class V5ProductsEndpoints
             }
 
             return Results.Ok(results);
-        })
-        .WithTags("5 - Inventory V5 (Hybrid Cosmos /pk)");
+        });
 
         // GET /api/v5/products/{id}
-        v5.MapGet("/products/{id}", async (string id, CosmosContainerFactory factory) =>
+        group.MapGet("/{id}", async (string id, CosmosContainerFactory factory) =>
         {
             var container = factory.Products();
             var pk = CosmosContainerFactory.StorePk;
@@ -49,11 +53,10 @@ public static class V5ProductsEndpoints
             {
                 return Results.NotFound();
             }
-        })
-        .WithTags("5 - Inventory V5 (Hybrid Cosmos /pk)");
+        });
 
         // POST /api/v5/products
-        v5.MapPost("/products", async (CreateProductV5Request req, CosmosContainerFactory factory) =>
+        group.MapPost("", async (CreateProductV5Request req, CosmosContainerFactory factory) =>
         {
             if (string.IsNullOrWhiteSpace(req.Name))
                 return Results.BadRequest("Name is required.");
@@ -65,7 +68,6 @@ public static class V5ProductsEndpoints
             {
                 Id = $"PROD#{Guid.NewGuid():N}",
                 Pk = pk,
-                // Type fixo no model (mas deixo explícito para segurança)
                 Type = "Product",
                 CreatedAtUtc = DateTime.UtcNow,
                 UpdatedAtUtc = DateTime.UtcNow,
@@ -83,16 +85,14 @@ public static class V5ProductsEndpoints
 
             await container.CreateItemAsync(product, new PartitionKey(pk));
             return Results.Created($"/api/v5/products/{product.Id}", product);
-        })
-        .WithTags("5 - Inventory V5 (Hybrid Cosmos /pk)");
+        });
 
         // PUT /api/v5/products/{id}
-        v5.MapPut("/products/{id}", async (string id, UpdateProductV5Request req, CosmosContainerFactory factory) =>
+        group.MapPut("/{id}", async (string id, UpdateProductV5Request req, CosmosContainerFactory factory) =>
         {
             var container = factory.Products();
             var pk = CosmosContainerFactory.StorePk;
 
-            // busca existente
             ProductV5 existing;
             try
             {
@@ -118,11 +118,10 @@ public static class V5ProductsEndpoints
 
             await container.ReplaceItemAsync(existing, id, new PartitionKey(pk));
             return Results.Ok(existing);
-        })
-        .WithTags("5 - Inventory V5 (Hybrid Cosmos /pk)");
+        });
 
         // DELETE /api/v5/products/{id}
-        v5.MapDelete("/products/{id}", async (string id, CosmosContainerFactory factory) =>
+        group.MapDelete("/{id}", async (string id, CosmosContainerFactory factory) =>
         {
             var container = factory.Products();
             var pk = CosmosContainerFactory.StorePk;
@@ -136,7 +135,6 @@ public static class V5ProductsEndpoints
             {
                 return Results.NotFound();
             }
-        })
-        .WithTags("5 - Inventory V5 (Hybrid Cosmos /pk)");
+        });
     }
 }
