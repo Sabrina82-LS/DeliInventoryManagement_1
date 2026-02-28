@@ -10,6 +10,7 @@ public class Restock
     public string Type { get; set; } = "Restock";
 
     public DateTime Date { get; set; }
+    public int Quantity { get; set; }
 
     public string SupplierId { get; set; } = string.Empty;
     public string SupplierName { get; set; } = string.Empty;

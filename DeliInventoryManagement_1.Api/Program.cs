@@ -6,10 +6,13 @@ using DeliInventoryManagement_1.Api.Messaging;
 using DeliInventoryManagement_1.Api.Messaging.Consumers;
 using DeliInventoryManagement_1.Api.Services;
 using DeliInventoryManagement_1.Api.Services.Outbox;
+//using DeliInventoryManagement_1.Infrastructure.Messaging;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
+using DeliInventoryManagement_1.Api.Services;
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -86,6 +89,10 @@ builder.Services.AddSingleton<CosmosContainerFactory>();
 builder.Services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("RabbitMQ"));
 builder.Services.AddSingleton<RabbitMqPublisher>();
 
+
+// Register RabbitMQ services
+builder.Services.AddSingleton<IRabbitMqService, RabbitMqService>();
+builder.Services.AddHostedService<RabbitMqHostedService>();
 // =====================================================
 // 6) Consumers (11.4/11.5)
 // =====================================================
@@ -151,3 +158,6 @@ static async Task EnsureCosmosSchemaAsync(WebApplication app)
     await db.CreateContainerIfNotExistsAsync(new ContainerProperties(opt.Containers.ReorderRules, "/pk"));
     await db.CreateContainerIfNotExistsAsync(new ContainerProperties(opt.Containers.Operations, "/pk"));
 }
+
+// Make Program class visible to tests
+public partial class Program { }
