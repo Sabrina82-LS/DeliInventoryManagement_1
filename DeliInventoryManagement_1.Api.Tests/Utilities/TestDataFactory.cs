@@ -11,7 +11,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Utilities
     public static class TestDataFactory
     {
         public static Product CreateProduct(
-            string id = null,
+            string id = null!,
             string name = "Test Product",
             string categoryId = "c1",
             string categoryName = "Test Category",
@@ -34,7 +34,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Utilities
         }
 
         public static ProductV5 CreateProductV5(
-            string id = null,
+            string id = null!,
             string name = "Test Product V5",
             string categoryId = "c1",
             int quantity = 100,
@@ -59,7 +59,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Utilities
         }
 
         public static Sales CreateSale(
-            string id = null,
+            string id = null!,
             List<SaleLine> lines = null)
         {
             if (lines == null)
@@ -88,7 +88,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Utilities
         }
 
         public static Restock CreateRestock(
-            string id = null,
+            string id = null!,
             string supplierId = "s1",
             string supplierName = "Test Supplier",
             List<RestockLine> lines = null)
@@ -120,7 +120,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Utilities
             };
         }
 
-        public static Category CreateCategory(string id = null, string name = "Test Category")
+        public static Category CreateCategory(string id = null!, string name = "Test Category")
         {
             return new Category
             {
@@ -131,7 +131,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Utilities
             };
         }
 
-        public static Supplier CreateSupplier(string id = null, string name = "Test Supplier")
+        public static Supplier CreateSupplier(string id = null!, string name = "Test Supplier")
         {
             return new Supplier
             {

@@ -11,7 +11,8 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockServices
         {
             // Arrange
             var mock = new MockRabbitMqService();
-            var sale = MockSales.GetNewSale();
+            var mockSales = new MockSales();
+            var sale = mockSales.GetNewSale();
 
             // Act
             mock.PublishSaleCreatedAsync(sale).Wait();
@@ -32,7 +33,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockServices
             mock.PublishRestockCreatedAsync(restock).Wait();
 
             // Assert
-            Assert.Equal(1, mock.PublishedMessages.Count);
+            Assert.Single(mock.PublishedMessages);
         }
 
         [Fact]
@@ -40,7 +41,8 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockServices
         {
             // Arrange
             var mock = new MockRabbitMqService();
-            var sale = MockSales.GetNewSale();
+            var mockSales = new MockSales();
+            var sale = mockSales.GetNewSale();
             mock.PublishSaleCreatedAsync(sale).Wait();
             Assert.Equal(1, mock.PublishedMessages.Count);
 
