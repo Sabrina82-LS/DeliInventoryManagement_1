@@ -7,7 +7,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockServices
     public class MockRabbitMqServiceTests
     {
         [Fact]
-        public void PublishSaleCreated_AddsMessage()
+        public async Task PublishSaleCreated_AddsMessage()
         {
             // Arrange
             var mock = new MockRabbitMqService();
@@ -15,7 +15,8 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockServices
             var sale = mockSales.GetNewSale();
 
             // Act
-            mock.PublishSaleCreatedAsync(sale).Wait();
+            //mock.PublishSaleCreatedAsync(sale).Wait();
+            await mock.PublishSaleCreatedAsync(sale);
 
             // Assert
             Assert.True(mock.WasMessagePublished($"SaleCreated:{sale.Id}"));
