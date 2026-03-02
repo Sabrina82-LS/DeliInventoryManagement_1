@@ -1,17 +1,17 @@
 name: main - Build and Test
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main, master, develop ]
+    branches: [ master, main, develop ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ master, main ]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
     
     services:
+      # RabbitMQ for messaging tests
       rabbitmq:
         image: rabbitmq:3-management
         ports:
@@ -25,27 +25,78 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      
+      # Cosmos DB Emulator for database tests
+      cosmosdb:
+        image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator
+        ports:
+          - 8081:8081
+          - 10251:10251
+          - 10252:10252
+          - 10253:10253
+          - 10254:10254
+        env:
+          AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 10
+          AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: false
+        options: >-
+          --health-cmd "curl -k https://localhost:8081/_explorer/emulator.pem || exit 1"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 20
+          --memory 3g
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
-    
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
     - name: Setup .NET
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
-    
+
     - name: Restore dependencies
       run: dotnet restore
-    
+
     - name: Build
-      run: dotnet build --configuration Release --no-restore /p:TreatWarningsAsErrors=false
-    
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Wait for Cosmos DB
+      run: |
+        echo "Waiting for Cosmos DB Emulator to be ready..."
+        for i in {1..30}; do
+          if curl -k -s https://localhost:8081/_explorer/emulator.pem > /dev/null; then
+            echo "Cosmos DB Emulator is ready!"
+            break
+          fi
+          echo "Waiting... ($i/30)"
+          sleep 5
+        done
+
     - name: Test
-      run: dotnet test --configuration Release --no-build --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+      run: dotnet test --configuration Release --no-build --verbosity normal
+      env:
+        COSMOS_ENDPOINT: https://localhost:8081
+        COSMOS_KEY: C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==
+        RABBITMQ_HOST: localhost
+        RABBITMQ_PORT: 5672
+        RABBITMQ_USERNAME: admin
+        RABBITMQ_PASSWORD: admin123
+
     - name: Upload test results
       uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results
         path: TestResults/
+        retention-days: 30
+
+    - name: Test Report
+      uses: dorny/test-reporter@v1
+      if: success() || failure()
+      with:
+        name: Test Report
+        path: TestResults/*.trx
+        reporter: dotnet-trx
+        fail-on-error: true
