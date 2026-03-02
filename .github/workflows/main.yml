@@ -1,98 +1,51 @@
-name: Test & Publish Coverage (xUnit + ReportGenerator)
+name: main - Build and Test
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ master ]
+    branches: [ main, master, develop ]
   pull_request:
-
-# Avoid overlapping Pages deployments
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
-
-# Required for GitHub Pages deploy
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-env:
-  DOTNET_VERSION: "8.0.x"
+    branches: [ main, master ]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    
+    services:
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
+          - 15672:15672
+        env:
+          RABBITMQ_DEFAULT_USER: admin
+          RABBITMQ_DEFAULT_PASS: admin123
+        options: >-
+          --health-cmd "rabbitmq-diagnostics ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      # =====================================================
-      # Restore / Build (Solution-wide)
-      # =====================================================
-      - name: Restore
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build --no-restore -c Release
-
-      # (Opcional) Debug útil quando algo falha
-      - name: List repository root
-        run: ls -la
-
-      # =====================================================
-      # Test (Solution-wide) + coverage (Coverlet collector)
-      # - Roda TODOS os projetos de teste encontrados
-      # - Gera coverage.cobertura.xml para o ReportGenerator
-      # =====================================================
-      - name: Test (xUnit) and collect coverage
-        run: >
-          dotnet test -c Release --no-build
-          --collect:"XPlat Code Coverage"
-          --logger "trx;LogFileName=test-results.trx"
-
-      # =====================================================
-      # Coverage report (HTML)
-      # =====================================================
-      - name: Install ReportGenerator
-        run: dotnet tool install -g dotnet-reportgenerator-globaltool
-
-      - name: Generate HTML coverage report
-        run: |
-          export PATH="$PATH:~/.dotnet/tools"
-          reportgenerator \
-            -reports:**/coverage.cobertura.xml \
-            -targetdir:coveragereport \
-            -reporttypes:Html
-
-      # Make the HTML report available as a workflow artifact on PRs too
-      - name: Upload coverage as build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-html
-          path: coveragereport
-
-      # Only package for Pages when merging/pushing to master
-      - name: Upload Pages artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./coveragereport
-
-  deploy:
-    # Only deploy on push to master
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 8.0.x
+    
+    - name: Restore dependencies
+      run: dotnet restore
+    
+    - name: Build
+      run: dotnet build --no-restore --configuration Release
+    
+    - name: Test
+      run: dotnet test --no-build --configuration Release --verbosity normal
+    
+    - name: Upload test results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: test-results
+        path: TestResults/
