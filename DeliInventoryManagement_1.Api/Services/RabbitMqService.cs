@@ -14,8 +14,8 @@ namespace DeliInventoryManagement_1.Api.Services
     {
         private readonly IConfiguration _configuration;
         private readonly ILogger<RabbitMqService> _logger;
-        private IConnection _connection;
-        private IModel _channel;
+        private IConnection _connection = null!;
+        private IModel _channel = null!;
         private bool _isConnected;
 
         public RabbitMqService(IConfiguration configuration, ILogger<RabbitMqService> logger)

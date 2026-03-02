@@ -68,7 +68,11 @@ namespace DeliInventoryManagement_1.Api.Tests.Endpoints
             var productResponse = await client.PostAsJsonAsync("/api/v5/products", productRequest);
             productResponse.EnsureSuccessStatusCode();
             var product = await productResponse.Content.ReadFromJsonAsync<ProductV5>();
-
+            if (product == null)
+            {
+                Assert.Fail("Failed to create product");
+                return;
+            }
             // Create sale
             var saleRequest = new
             {

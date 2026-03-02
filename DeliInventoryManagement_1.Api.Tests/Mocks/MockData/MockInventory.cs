@@ -150,7 +150,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
                    p.ReorderLevel,
                    NeedsReorder = p.Quantity <= p.ReorderLevel,
                    Value = p.Cost * p.Quantity
-               })
+               }).ToList()
             }
         };
         }

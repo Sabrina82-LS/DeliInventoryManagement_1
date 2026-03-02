@@ -60,9 +60,9 @@ namespace DeliInventoryManagement_1.Api.Tests.Utilities
 
         public static Sales CreateSale(
             string id = null!,
-            List<SaleLine> lines = null)
+            List<SaleLine> lines = null!)
         {
-            if (lines == null)
+            if (lines == null!) lines = new List<SaleLine>();
             {
                 lines = new List<SaleLine>
                 {
@@ -91,9 +91,9 @@ namespace DeliInventoryManagement_1.Api.Tests.Utilities
             string id = null!,
             string supplierId = "s1",
             string supplierName = "Test Supplier",
-            List<RestockLine> lines = null)
+            List<RestockLine> lines = null!)
         {
-            if (lines == null)
+            if (lines == null!) lines= new List<RestockLine>();
             {
                 lines = new List<RestockLine>
                 {

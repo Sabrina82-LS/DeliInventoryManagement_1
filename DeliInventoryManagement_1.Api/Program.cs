@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Options;
 using System.Text.Json;
-using DeliInventoryManagement_1.Api.Services;
 
 
 var builder = WebApplication.CreateBuilder(args);
