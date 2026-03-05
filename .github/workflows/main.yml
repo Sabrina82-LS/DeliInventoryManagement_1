@@ -2,9 +2,9 @@ name: main - Build and Test
 
 on:
   push:
-    branches: [ master, main, develop ]
+    branches: [ main, Mock-simulation, develop ]
   pull_request:
-    branches: [ master, main ]
+    branches: [ main, Mock-simulation]
 
 jobs:
   build-and-test:
