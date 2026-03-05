@@ -18,11 +18,14 @@ namespace DeliInventoryManagement_1.Api.Tests.Utilities
             ServiceProvider = services.BuildServiceProvider();
         }
 
-        protected Mock<T> CreateMock<T>() where T : class
+        protected static Mock<T> CreateMock<T>() where T : class
         {
             return new Mock<T>();
         }
-
+        protected T GetService<T>() where T : notnull
+        {
+            return ServiceProvider.GetRequiredService<T>();
+        }
         public virtual void Dispose()
         {
             GC.SuppressFinalize(this);

@@ -26,6 +26,9 @@ namespace DeliInventoryManagement_1.Api.Tests.Services
 
         public ProductServiceTests()
         {
+            var mockContainer1 = CreateMock<Container>();
+            var mockContainer2 = TestBase.CreateMock<Container>();
+
             _mockCosmosClient = CreateMock<CosmosClient>();
             _mockContainer = CreateMock<Container>();
             _mockCache = CreateMock<IMemoryCache>();
@@ -45,6 +48,8 @@ namespace DeliInventoryManagement_1.Api.Tests.Services
             object? cachedValue = null;
             _mockCache.Setup(c => c.TryGetValue(It.IsAny<object>(), out cachedValue))
                 .Returns(false);
+
+           
 
             _service = new ProductService(_mockCosmosClient.Object, _mockConfig.Object, _mockCache.Object);
         }

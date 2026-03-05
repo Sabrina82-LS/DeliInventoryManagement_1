@@ -11,8 +11,8 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockServices
         {
             // Arrange
             var mock = new MockRabbitMqService();
-            var mockSales = new MockSales();
-            var sale = mockSales.GetNewSale();
+            //var mockSales = new MockSales();
+            var sale = MockSales.GetNewSale();
 
             // Act
             //mock.PublishSaleCreatedAsync(sale).Wait();
@@ -20,31 +20,31 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockServices
 
             // Assert
             Assert.True(mock.WasMessagePublished($"SaleCreated:{sale.Id}"));
-            Assert.Equal(1, mock.CountMessagesByType("SaleCreated"));
+            Assert.Single(mock.PublishedMessages);
         }
 
         [Fact]
-        public void PublishRestockCreated_AddsMessage()
+        public async Task PublishRestockCreated_AddsMessage()
         {
             // Arrange
             var mock = new MockRabbitMqService();
             var restock = new Restock { Id = "test-123", Quantity = 10 };
 
             // Act
-            mock.PublishRestockCreatedAsync(restock).Wait();
+          await mock.PublishRestockCreatedAsync(restock);
 
             // Assert
             Assert.Single(mock.PublishedMessages);
         }
 
         [Fact]
-        public void ClearMessages_RemovesAllMessages()
+        public async Task ClearMessages_RemovesAllMessages()
         {
             // Arrange
             var mock = new MockRabbitMqService();
-            var mockSales = new MockSales();
-            var sale = mockSales.GetNewSale();
-            mock.PublishSaleCreatedAsync(sale).Wait();
+            //var mockSales = new MockSales();
+            var sale = MockSales.GetNewSale();
+            await mock.PublishSaleCreatedAsync(sale);
             Assert.Equal(1, mock.PublishedMessages.Count);
 
             // Act

@@ -9,13 +9,13 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
 {
     public class InventoryTransaction
     {
-        public string Id { get; set; } = string.Empty;  // Initialize with empty string
+        public string Id { get; set; } = string.Empty;  
         public string ProductId { get; set; } = string.Empty;
         public string ProductName { get; set; } = string.Empty;
         public int QuantityChange { get; set; }
         public string TransactionType { get; set; } = string.Empty;
         public DateTime TransactionDate { get; set; }
-        public string Notes { get; set; } = string.Empty;  // Initialize with empty string
+        public string Notes { get; set; } = string.Empty;  
     }
 
     public static class MockInventory

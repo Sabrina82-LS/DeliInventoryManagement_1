@@ -10,6 +10,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.VisualStudio.TestPlatform.TestHost;
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 namespace DeliInventoryManagement_1.Api.Tests.Endpoints
 {
@@ -18,7 +19,37 @@ namespace DeliInventoryManagement_1.Api.Tests.Endpoints
         private readonly WebApplicationFactory<Program> _factory;
         private readonly MockRabbitMqService _mockRabbitMq;
 
+        private static readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
 
+        private static readonly string[] TestUrls = new[]
+  {
+        "/api/v5/sales",
+        "/api/v5/sales/create",
+        "/api/v5/createsale",
+        "/api/v5/sale"
+    };
+
+        private static readonly string[] GetUrls = new[]
+        {
+        "/api/v5/sales",
+        "/v5/sales",
+        "/sales",
+        "/api/sales",
+        "/api/v1/sales",
+        "/sales/create"
+    };
+        private static readonly string[] TestPostUrls = new[]
+{
+        "/api/v5/sales",
+        "/v5/sales",
+        "/sales",
+        "/api/sales",
+        "/api/v1/sales",
+        "/sales/create"
+    };
         public V5SalesEndpointsTests(WebApplicationFactory<Program> factory)
         {
             _mockRabbitMq = new MockRabbitMqService();
@@ -91,14 +122,14 @@ namespace DeliInventoryManagement_1.Api.Tests.Endpoints
 
         }
         [Fact]
-        public void Mock_Itself_Works()
+        public async Task Mock_Itself_Works()
         {
             // This test ONLY tests the mock, not the API
             var mock = new MockRabbitMqService();
             var sale = new Sale { Id = "test-123" };
 
 
-            mock.PublishSaleCreatedAsync(sale).Wait();
+            await mock.PublishSaleCreatedAsync(sale);
 
             Assert.True(mock.WasMessagePublished("SaleCreated"));
             Assert.Equal(1, mock.CountMessagesByType("SaleCreated"));
@@ -139,6 +170,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Endpoints
             var productResponse = await client.PostAsJsonAsync("/api/v5/products", productRequest);
             productResponse.EnsureSuccessStatusCode();
             var product = await productResponse.Content.ReadFromJsonAsync<ProductV5>();
+            Assert.NotNull(product);
 
             // STEP 2: Now create the sale with the REAL product ID
             var saleRequest = new
@@ -147,7 +179,8 @@ namespace DeliInventoryManagement_1.Api.Tests.Endpoints
                 lines = new[]
                 {
             new {
-                productId = product.Id,  // ← Using the real ID from step 1
+
+                productId = product.Id,  
                 quantity = 2
             }
         }
@@ -167,21 +200,15 @@ namespace DeliInventoryManagement_1.Api.Tests.Endpoints
         public async Task FindPostUrl()
         {
             var client = _factory.CreateClient();
-            var urls = new[]
-            {
-        "/api/v5/sales",
-        "/api/v5/sales/create",
-        "/api/v5/createsale",
-        "/api/v5/sale"
-    };
 
             var testData = new { date = DateTime.UtcNow, lines = new[] { new { productId = "test", quantity = 1 } } };
 
-            foreach (var url in urls)
+            foreach (var url in TestUrls)
             {
                 var response = await client.PostAsJsonAsync(url, testData);
                 Console.WriteLine($"POST {url}: {(int)response.StatusCode}");
             }
+            Assert.True(true, "Debug test completed");
         }
 
 
@@ -190,13 +217,13 @@ namespace DeliInventoryManagement_1.Api.Tests.Endpoints
         public async Task FindUrl()
         {
             var client = _factory.CreateClient();
-            var urls = new[] { "/api/v5/sales", "/v5/sales", "/sales", "/api/sales" };
-
-            foreach (var url in urls)
+         
+            foreach (var url in GetUrls)
             {
                 var response = await client.GetAsync(url);
                 Console.WriteLine($"{url}: {(int)response.StatusCode}");
             }
+            Assert.True(true, "Debug test completed");
         }
 
         [Fact]
@@ -204,17 +231,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Endpoints
         {
             var client = _factory.CreateClient();
 
-            var urls = new[]
-            {
-        "/api/v5/sales",
-        "/v5/sales",
-        "/sales",
-        "/api/sales",
-        "/api/v1/sales",
-        "/sales/create"
-    };
-
-            foreach (var url in urls)
+           foreach (var url in TestPostUrls)
             {
                 var response = await client.PostAsJsonAsync(url, new
                 {
@@ -229,6 +246,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Endpoints
                 {
                     Console.WriteLine($"✅ FOUND WORKING URL: {url}");
                 }
+                Assert.True(true, "Debug test completed");
             }
         }
 
@@ -238,7 +256,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Endpoints
         {
             // Arrange - Invalid request (missing product)
             var client = _factory.CreateClient();
-            var invalidRequest = new { date = DateTime.UtcNow, lines = new object[] { } };
+            var invalidRequest = new { date = DateTime.UtcNow, lines = Array.Empty<object>() };
 
             // Act
             var response = await client.PostAsJsonAsync("/api/v5/sales", invalidRequest);

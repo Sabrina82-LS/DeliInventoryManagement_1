@@ -146,6 +146,7 @@ namespace DeliInventoryManagement_1.Api.Services
         {
             _channel?.Dispose();
             _connection?.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

@@ -5,9 +5,9 @@ using DeliInventoryManagement_1.Api.Models;
 
 namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
 {
-    public class MockSales
+    public static class MockSales
     {
-        public List<Sales> GetMockSales()
+        public static List<Sales> GetMockSales()
         {
             return new List<Sales>
         {
@@ -74,7 +74,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
         }
 
 
-        public Sale GetNewSale()
+        public static Sale GetNewSale()
         {
             return new Sale
             {

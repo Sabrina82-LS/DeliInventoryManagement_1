@@ -1,14 +1,20 @@
-﻿using System;
+﻿using DeliInventoryManagement_1.Api.Models;
+using DeliInventoryManagement_1.Api.Services;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
-using DeliInventoryManagement_1.Api.Models;
-using DeliInventoryManagement_1.Api.Services;
 
 namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockServices
 {
     public class MockRabbitMqService : IRabbitMqService
     {
+        private static readonly JsonSerializerOptions _jsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
         private readonly List<string> _publishedMessages = new();
         private readonly List<string> _createdQueues = new();
         private bool _isConnected = false;
@@ -167,12 +173,12 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockServices
 
         public bool WasMessagePublished(string messageContent)
         {
-            return _publishedMessages.Any(m => m.Contains(messageContent));
+            return _publishedMessages.Any(m => m.Contains(messageContent, StringComparison.OrdinalIgnoreCase));
         }
 
         public int CountMessagesByType(string eventType)
         {
-            return _publishedMessages.Count(m => m.StartsWith(eventType));
+            return _publishedMessages.Count(m => m.StartsWith(eventType, StringComparison.OrdinalIgnoreCase));
         }
 
         public void Reset()

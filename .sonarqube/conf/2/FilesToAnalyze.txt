@@ -1,0 +1,17 @@
+﻿C:\Users\Yamit\source\repos\DeliInventoryManagement_1\DeliInventoryManagement_1.Api.Tests\Endpoints\V5SalesEndpointsTests.cs
+C:\Users\Yamit\source\repos\DeliInventoryManagement_1\DeliInventoryManagement_1.Api.Tests\Mocks\MockData\MockDataFactory.cs
+C:\Users\Yamit\source\repos\DeliInventoryManagement_1\DeliInventoryManagement_1.Api.Tests\Mocks\MockData\MockInventory.cs
+C:\Users\Yamit\source\repos\DeliInventoryManagement_1\DeliInventoryManagement_1.Api.Tests\Mocks\MockData\MockProducts.cs
+C:\Users\Yamit\source\repos\DeliInventoryManagement_1\DeliInventoryManagement_1.Api.Tests\Mocks\MockData\MockSales.cs
+C:\Users\Yamit\source\repos\DeliInventoryManagement_1\DeliInventoryManagement_1.Api.Tests\Mocks\MockServices\MockRabbitMqService.cs
+C:\Users\Yamit\source\repos\DeliInventoryManagement_1\DeliInventoryManagement_1.Api.Tests\Mocks\MockServices\MockRabbitMqServiceTests.cs
+C:\Users\Yamit\source\repos\DeliInventoryManagement_1\DeliInventoryManagement_1.Api.Tests\Services\ProductServiceTests.cs
+C:\Users\Yamit\source\repos\DeliInventoryManagement_1\DeliInventoryManagement_1.Api.Tests\Services\RabbitMqServiceTests.cs
+C:\Users\Yamit\source\repos\DeliInventoryManagement_1\DeliInventoryManagement_1.Api.Tests\Utilities\TestBase.cs
+C:\Users\Yamit\source\repos\DeliInventoryManagement_1\DeliInventoryManagement_1.Api.Tests\Utilities\TestDataFactory.cs
+C:\Users\Yamit\.nuget\packages\microsoft.net.test.sdk\18.0.1\build\net8.0\Microsoft.NET.Test.Sdk.Program.cs
+C:\Users\Yamit\.nuget\packages\microsoft.testplatform.testhost\18.0.1\build\net8.0\x64\testhost.exe
+C:\Users\Yamit\.nuget\packages\microsoft.testplatform.testhost\18.0.1\build\net8.0\x64\testhost.dll
+C:\Users\Yamit\.nuget\packages\xunit.runner.visualstudio\2.8.2\build\net6.0\xunit.runner.visualstudio.testadapter.dll
+C:\Users\Yamit\.nuget\packages\xunit.runner.visualstudio\2.8.2\build\net6.0\xunit.runner.reporters.netcoreapp10.dll
+C:\Users\Yamit\.nuget\packages\xunit.runner.visualstudio\2.8.2\build\net6.0\xunit.runner.utility.netcoreapp10.dll

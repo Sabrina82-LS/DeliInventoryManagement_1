@@ -14,7 +14,7 @@ public sealed class CosmosStjSerializer : CosmosSerializer
 
     public override T FromStream<T>(Stream stream)
     {
-        if (stream is null) throw new ArgumentNullException(nameof(stream));
+        ArgumentNullException.ThrowIfNull(stream);
 
         if (typeof(Stream).IsAssignableFrom(typeof(T)))
             return (T)(object)stream;
