@@ -45,6 +45,7 @@ public sealed class RabbitMqPublisher : IDisposable
             NetworkRecoveryInterval = TimeSpan.FromSeconds(5)
         };
 
+        
         _conn = factory.CreateConnection();
         _ch = _conn.CreateModel();
 

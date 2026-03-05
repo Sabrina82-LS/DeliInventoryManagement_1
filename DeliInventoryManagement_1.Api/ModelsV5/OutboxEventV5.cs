@@ -37,7 +37,7 @@ public sealed class OutboxEventV5 : CosmosDocument
 
     // Ajuda para auditoria / dispatcher
     [JsonPropertyName("updatedAtUtc")]
-    public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
+    public new DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
 
     [JsonPropertyName("publishedAtUtc")]
     public DateTime? PublishedAtUtc { get; set; }
