@@ -196,59 +196,59 @@ namespace DeliInventoryManagement_1.Api.Tests.Endpoints
         }
 
 
-        [Fact]
-        public async Task FindPostUrl()
-        {
-            var client = _factory.CreateClient();
+        // [Fact]
+        // public async Task FindPostUrl()
+        // {
+        //     var client = _factory.CreateClient();
 
-            var testData = new { date = DateTime.UtcNow, lines = new[] { new { productId = "test", quantity = 1 } } };
+        //     var testData = new { date = DateTime.UtcNow, lines = new[] { new { productId = "test", quantity = 1 } } };
 
-            foreach (var url in TestUrls)
-            {
-                var response = await client.PostAsJsonAsync(url, testData);
-                Console.WriteLine($"POST {url}: {(int)response.StatusCode}");
-            }
-            Assert.True(true, "Debug test completed");
-        }
+        //     foreach (var url in TestUrls)
+        //     {
+        //         var response = await client.PostAsJsonAsync(url, testData);
+        //         Console.WriteLine($"POST {url}: {(int)response.StatusCode}");
+        //     }
+        //     Assert.True(true, "Debug test completed");
+        // }
 
 
 
-        [Fact]
-        public async Task FindUrl()
-        {
-            var client = _factory.CreateClient();
+        // [Fact]
+        // public async Task FindUrl()
+        // {
+        //     var client = _factory.CreateClient();
          
-            foreach (var url in GetUrls)
-            {
-                var response = await client.GetAsync(url);
-                Console.WriteLine($"{url}: {(int)response.StatusCode}");
-            }
-            Assert.True(true, "Debug test completed");
-        }
+        //     foreach (var url in GetUrls)
+        //     {
+        //         var response = await client.GetAsync(url);
+        //         Console.WriteLine($"{url}: {(int)response.StatusCode}");
+        //     }
+        //     Assert.True(true, "Debug test completed");
+        // }
 
-        [Fact]
-        public async Task FindCorrectSalesUrl()
-        {
-            var client = _factory.CreateClient();
+        // [Fact]
+        // public async Task FindCorrectSalesUrl()
+        // {
+        //     var client = _factory.CreateClient();
 
-           foreach (var url in TestPostUrls)
-            {
-                var response = await client.PostAsJsonAsync(url, new
-                {
-                    date = DateTime.UtcNow,
-                    lines = new[] { new { productId = "test", quantity = 1 } }
-                });
+        //    foreach (var url in TestPostUrls)
+        //     {
+        //         var response = await client.PostAsJsonAsync(url, new
+        //         {
+        //             date = DateTime.UtcNow,
+        //             lines = new[] { new { productId = "test", quantity = 1 } }
+        //         });
 
-                Console.WriteLine($"{url}: {(int)response.StatusCode} {response.StatusCode}");
+        //         Console.WriteLine($"{url}: {(int)response.StatusCode} {response.StatusCode}");
 
-                if (response.StatusCode == HttpStatusCode.Created ||
-                    response.StatusCode == HttpStatusCode.BadRequest)
-                {
-                    Console.WriteLine($"✅ FOUND WORKING URL: {url}");
-                }
-                Assert.True(true, "Debug test completed");
-            }
-        }
+        //         if (response.StatusCode == HttpStatusCode.Created ||
+        //             response.StatusCode == HttpStatusCode.BadRequest)
+        //         {
+        //             Console.WriteLine($"✅ FOUND WORKING URL: {url}");
+        //         }
+        //         Assert.True(true, "Debug test completed");
+        //     }
+        // }
 
 
         [Fact]
