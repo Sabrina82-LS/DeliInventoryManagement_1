@@ -1,12 +1,13 @@
-﻿using System;
+﻿using DeliInventoryManagement_1.Api.Models;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
+using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
-using DeliInventoryManagement_1.Api.Models;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
-using RabbitMQ.Client;
 
 namespace DeliInventoryManagement_1.Api.Services
 {
@@ -61,18 +62,40 @@ namespace DeliInventoryManagement_1.Api.Services
         {
             try
             {
-                _channel?.Close();
-                _connection?.Close();
-                _isConnected = false;
-                _logger.LogInformation("Disconnected from RabbitMQ");
+                if (_connection != null && _connection.IsOpen)
+                {
+                    // Use Close() instead of CloseAsync() for older RabbitMQ.Client versions
+                    _connection.Close();
+
+                    // Small delay to allow cleanup
+                    await Task.Delay(100);
+                }
+            }
+            catch (AlreadyClosedException)
+            {
+                // Connection already closed - ignore
+                Console.WriteLine("RabbitMQ connection already closed");
+            }
+            catch (ObjectDisposedException)
+            {
+                // Already disposed - ignore
+                Console.WriteLine("RabbitMQ connection already disposed");
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error disconnecting");
+                _logger?.LogError(ex, "Error disconnecting from RabbitMQ");
             }
-            await Task.CompletedTask;
+            finally
+            {
+                if (_connection != null!)
+                {
+                    _connection.Dispose();
+                    _connection = null!;
+                }
+                _channel = null!;
+                _isConnected = false;
+            }
         }
-
         public async Task CreateQueuesAsync()
         {
             if (!_isConnected) await ConnectAsync();

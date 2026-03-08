@@ -120,7 +120,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
         }
 
         // Reports
-        public static List<InventoryTransaction> GetTransactionHistory(string productId = null)
+        public static List<InventoryTransaction> GetTransactionHistory(string productId = null!)
         {
             if (productId == null)
                 return _transactions.OrderByDescending(t => t.TransactionDate).ToList();
@@ -140,7 +140,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
         {
             { "AsOf", DateTime.Now },
             { "TotalProducts", _products.Count },
-            { "TotalValue", _products.Sum(p => p.Cost * p.Quantity) },
+            { "TotalValue", _products.Sum(p => Convert.ToDecimal(p.Cost) * p.Quantity) },
             { "LowStockItems", GetProductsNeedingReorder().Count },
             { "Products", _products.Select(p => new
                {
@@ -149,7 +149,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
                    p.Quantity,
                    p.ReorderLevel,
                    NeedsReorder = p.Quantity <= p.ReorderLevel,
-                   Value = p.Cost * p.Quantity
+                   Value = Convert.ToDecimal(p.Cost) * p.Quantity
                }).ToList()
             }
         };

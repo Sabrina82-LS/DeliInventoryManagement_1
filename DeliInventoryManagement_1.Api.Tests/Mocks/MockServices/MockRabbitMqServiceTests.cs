@@ -45,7 +45,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockServices
             //var mockSales = new MockSales();
             var sale = MockSales.GetNewSale();
             await mock.PublishSaleCreatedAsync(sale);
-            Assert.Equal(1, mock.PublishedMessages.Count);
+            Assert.Single(mock.PublishedMessages);
 
             // Act
             mock.ClearMessages();
