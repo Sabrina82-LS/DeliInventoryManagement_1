@@ -6,7 +6,6 @@ using DeliInventoryManagement_1.Api.Messaging;
 using DeliInventoryManagement_1.Api.Messaging.Consumers;
 using DeliInventoryManagement_1.Api.Services;
 using DeliInventoryManagement_1.Api.Services.Outbox;
-//using DeliInventoryManagement_1.Infrastructure.Messaging;
 using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Options;
@@ -92,6 +91,11 @@ builder.Services.AddSingleton<RabbitMqPublisher>();
 // Register RabbitMQ services
 builder.Services.AddSingleton<IRabbitMqService, RabbitMqService>();
 builder.Services.AddHostedService<RabbitMqHostedService>();
+
+// Register Domain Service
+builder.Services.AddScoped<ISalesService, SalesService>();
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<ISupplierService, SupplierService>();
 // =====================================================
 // 6) Consumers (11.4/11.5)
 // =====================================================
