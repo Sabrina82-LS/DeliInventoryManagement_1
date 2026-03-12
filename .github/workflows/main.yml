@@ -45,7 +45,7 @@ jobs:
           --health-timeout 10s
           --health-retries 20
           --memory 3g
-
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -76,7 +76,7 @@ jobs:
         done
 
     - name: Test
-      run: dotnet test --configuration Release --no-build --verbosity normal
+      run: dotnet test --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
       env:
         COSMOS_ENDPOINT: https://localhost:8081
         COSMOS_KEY: C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==
@@ -95,7 +95,7 @@ jobs:
 
     - name: Test Report
       uses: dorny/test-reporter@v1
-      if: success() || failure()
+      if: always()  
       with:
         name: Test Report
         path: TestResults/*.trx
