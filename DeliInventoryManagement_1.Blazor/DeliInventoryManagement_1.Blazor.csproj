@@ -27,6 +27,7 @@
 
   <ItemGroup>
     <Folder Include="Styles\" />
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.16.0" />
   </ItemGroup>
 
 </Project>
