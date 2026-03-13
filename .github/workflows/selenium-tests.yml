@@ -9,10 +9,9 @@ jobs:
       contents: read
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Run Selenium IDE Tests
       uses: Dylan700/selenium-ide-action@latest
       with:
         token: ${{ secrets.GITHUB_TOKEN }}
-        # This automatically runs all .side files in your repo
