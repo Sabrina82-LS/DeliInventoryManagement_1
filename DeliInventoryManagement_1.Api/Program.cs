@@ -17,6 +17,7 @@ using Microsoft.OpenApi.Models;
 using System.Text;
 using System.Text.Json;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // =====================================================
@@ -151,6 +152,15 @@ builder.Services.AddSingleton<CosmosContainerFactory>();
 builder.Services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("RabbitMQ"));
 builder.Services.AddSingleton<RabbitMqPublisher>();
 
+
+// Register RabbitMQ services
+builder.Services.AddSingleton<IRabbitMqService, RabbitMqService>();
+builder.Services.AddHostedService<RabbitMqHostedService>();
+
+// Register Domain Service
+builder.Services.AddScoped<ISalesService, SalesService>();
+builder.Services.AddScoped<IProductService, ProductService>();
+builder.Services.AddScoped<ISupplierService, SupplierService>();
 // =====================================================
 // 6) Consumers (11.4/11.5)
 // =====================================================
@@ -228,6 +238,8 @@ static async Task EnsureCosmosSchemaAsync(WebApplication app)
     await db.CreateContainerIfNotExistsAsync(new ContainerProperties("Users", "/pk"));
 }
 
+// Make Program class visible to tests
+public partial class Program { }
 static async Task EnsureSeedUsersAsync(WebApplication app)
 {
     using var scope = app.Services.CreateScope();

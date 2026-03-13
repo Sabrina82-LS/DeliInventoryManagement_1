@@ -11,42 +11,42 @@ public static class CategorySeed
             new Category
             {
                 Id = "c1",
-                Type = "Category",
+                Type = nameof(Category),
                 Name = "Meat",
                 Description = "Fresh and frozen meat products"
             },
             new Category
             {
                 Id = "c2",
-                Type = "Category",
+                Type = nameof(Category),
                 Name = "Dairy",
                 Description = "Milk, cheese, yogurt and other dairy products"
             },
             new Category
             {
                 Id = "c3",
-                Type = "Category",
+               Type = nameof(Category),
                 Name = "Beverages",
                 Description = "Soft drinks, juices, water and beverages"
             },
             new Category
             {
                 Id = "c4",
-                Type = "Category",
+                Type = nameof(Category),
                 Name = "Bakery",
                 Description = "Bread, cakes and baked goods"
             },
             new Category
             {
                 Id = "c5",
-                Type = "Category",
+                Type = nameof(Category),
                 Name = "Vegetables",
                 Description = "Fresh vegetables and greens"
             },
             new Category
             {
                 Id = "c6",
-                Type = "Category",
+                Type = nameof(Category),
                 Name = "Fruits",
                 Description = "Fresh seasonal fruits"
             },

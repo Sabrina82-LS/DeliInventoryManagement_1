@@ -172,5 +172,6 @@ public abstract class RabbitMqRetryConsumerBase<T> : BackgroundService
         _ch?.Dispose();
         _conn?.Dispose();
         base.Dispose();
+        GC.SuppressFinalize(this);
     }
 }
