@@ -1,4 +1,4 @@
-name: Run Selenium Tests
+name: Run Selenium IDE Tests
 on: [push, pull_request]
 
 jobs:
@@ -7,11 +7,46 @@ jobs:
     permissions:
       checks: write
       contents: read
+      pull-requests: write
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Run Selenium IDE Tests
-      uses: Dylan700/selenium-ide-action@latest
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+        node-version: '18'
+    
+    - name: Install Selenium IDE Runner
+      run: npm install -g selenium-side-runner
+    
+    - name: Run Selenium IDE Tests
+      run: |
+        # Create results directory
+        mkdir -p test-results
+        
+        # Run all .side files in the repository
+        selenium-side-runner \
+          --server http://localhost:4444/wd/hub \
+          --output-directory ./test-results \
+          --output-format junit \
+          **/*.side
+      env:
+        SELENIUM_REMOTE_URL: http://localhost:4444/wd/hub
+    
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: selenium-test-results
+        path: test-results/
+        retention-days: 30
+    
+    - name: Publish Test Report
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Selenium Test Report
+        path: "test-results/*.xml"
+        reporter: java-junit
+        fail-on-error: false
