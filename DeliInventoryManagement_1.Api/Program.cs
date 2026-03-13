@@ -163,4 +163,6 @@ static async Task EnsureCosmosSchemaAsync(WebApplication app)
 }
 
 // Make Program class visible to tests
-public partial class Program { }
+public partial class Program {
+   
+}
