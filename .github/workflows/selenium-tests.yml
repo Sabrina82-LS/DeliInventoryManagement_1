@@ -1,0 +1,18 @@
+name: Run Selenium Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Run Selenium IDE Tests
+      uses: Dylan700/selenium-ide-action@latest
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        # This automatically runs all .side files in your repo
