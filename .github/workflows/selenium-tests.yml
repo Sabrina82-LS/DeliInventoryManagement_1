@@ -1,13 +1,16 @@
-name: Run Selenium IDE Tests
+name: Selenium IDE Tests
 on: [push, pull_request]
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-      contents: read
-      pull-requests: write
+    
+    services:
+      selenium:
+        image: selenium/standalone-chrome
+        ports:
+          - 4444:4444
+        options: --shm-size="2g"
     
     steps:
     - uses: actions/checkout@v4
@@ -20,33 +23,20 @@ jobs:
     - name: Install Selenium IDE Runner
       run: npm install -g selenium-side-runner
     
+    - name: Wait for Selenium
+      run: sleep 10
+    
     - name: Run Selenium IDE Tests
       run: |
-        # Create results directory
         mkdir -p test-results
-        
-        # Run all .side files in the repository
         selenium-side-runner \
           --server http://localhost:4444/wd/hub \
           --output-directory ./test-results \
-          --output-format junit \
-          **/*.side
-      env:
-        SELENIUM_REMOTE_URL: http://localhost:4444/wd/hub
+          *.side
     
-    - name: Upload Test Results
+    - name: Upload Results
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: selenium-test-results
+        name: test-results
         path: test-results/
-        retention-days: 30
-    
-    - name: Publish Test Report
-      uses: dorny/test-reporter@v1
-      if: always()
-      with:
-        name: Selenium Test Report
-        path: "test-results/*.xml"
-        reporter: java-junit
-        fail-on-error: false
