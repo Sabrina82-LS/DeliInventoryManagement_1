@@ -239,7 +239,7 @@ static async Task EnsureCosmosSchemaAsync(WebApplication app)
 }
 
 // Make Program class visible to tests
-public partial class Program { }
+
 static async Task EnsureSeedUsersAsync(WebApplication app)
 {
     using var scope = app.Services.CreateScope();
@@ -249,3 +249,4 @@ static async Task EnsureSeedUsersAsync(WebApplication app)
 
     await UserSeed.EnsureUsersAsync(cosmos, config);
 }
+public partial class Program { }
