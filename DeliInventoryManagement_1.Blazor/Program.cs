@@ -83,6 +83,12 @@ builder.Services.AddHttpClient<IDashboardService, DashboardService>(client =>
 })
 .AddHttpMessageHandler<JwtAuthHandler>();
 
+builder.Services.AddHttpClient<IProductsService, ProductsService>(client =>
+{
+    client.BaseAddress = apiUri;
+})
+.AddHttpMessageHandler<JwtAuthHandler>();
+
 builder.Services.AddHttpClient<ISalesService, SalesService>(client =>
 {
     client.BaseAddress = apiUri;
@@ -140,6 +146,5 @@ app.UseAntiforgery();
 // ======================================================
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
-
 
 app.Run();
