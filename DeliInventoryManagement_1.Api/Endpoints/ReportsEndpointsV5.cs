@@ -12,7 +12,8 @@ public static class ReportsEndpointsV5
     public static IEndpointRouteBuilder MapReportsV5(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v5/reports")
-            .WithTags("Reports V5");
+            .WithTags("Reports V5")
+            .RequireAuthorization("AdminOnly");
 
         // GET /api/v5/reports/sales?from=2026-02-01&to=2026-02-28&pk=STORE#1
         group.MapGet("/sales", async (

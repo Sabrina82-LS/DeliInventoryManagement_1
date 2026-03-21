@@ -1,18 +1,14 @@
 ﻿@page "/"
+@inject NavigationManager Nav
 
-<section class="home-hero">
-    <div class="glass-card">
-        <h1 class="glass-title">Deli Inventory</h1>
+<p>Redirecting to login...</p>
 
-        <p class="glass-subtitle">
-            Manage products, track stock movements, register sales and restocks,
-            and generate reports in a clean, simple dashboard.
-        </p>
-
-        <div class="hero-actions">
-            <a class="btn-primary-hero" href="stock">View Stock</a>
-            <a class="btn-secondary-hero" href="sales">Create Sale</a>
-            <a class="btn-secondary-hero" href="restocks">Create Restock</a>
-        </div>
-    </div>
-</section>
+@code {
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender)
+        {
+            Nav.NavigateTo("/login", true);
+        }
+    }
+}

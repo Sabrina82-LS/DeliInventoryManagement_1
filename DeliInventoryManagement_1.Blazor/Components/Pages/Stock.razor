@@ -1,10 +1,12 @@
 ﻿@page "/stock"
-@rendermode InteractiveServer
+
 
 @using DeliInventoryManagement_1.Blazor.Models.V5
 @using DeliInventoryManagement_1.Blazor.Services
 @inject IDashboardService DashboardService
 
+
+<AuthGuard>
 <div class="stock-wrap">
     <h1 class="stock-title">Stock</h1>
 
@@ -208,3 +210,4 @@
         await LoadStockAsync();
     }
 }
+</AuthGuard>

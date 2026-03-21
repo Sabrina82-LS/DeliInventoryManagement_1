@@ -1,5 +1,5 @@
 ﻿@page "/restocks"
-@rendermode InteractiveServer
+
 
 @using DeliInventoryManagement_1.Blazor.Models.V5
 @using DeliInventoryManagement_1.Blazor.Models.CreateLineRequest
@@ -10,6 +10,7 @@
 @inject IDashboardService DashboardService
 @inject ISuppliersServiceV5 SuppliersServiceV5
 
+<AuthGuard>
 <div class="restocks-wrap">
     <h1 class="restocks-title">Restocks</h1>
 
@@ -382,3 +383,4 @@
         }
     }
 }
+</AuthGuard>

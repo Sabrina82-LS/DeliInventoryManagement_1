@@ -1,8 +1,12 @@
 ﻿@page "/reports/restocks"
+
 @using DeliInventoryManagement_1.Blazor.Models.Report
 @inject DeliInventoryManagement_1.Blazor.Services.IReportsService ReportsService
-@rendermode InteractiveServer
 
+
+
+
+<AuthGuard>
 <div class="restocksreport-wrap">
     <h1 class="restocksreport-title">Restocks Report</h1>
     <p class="muted">Filter by date range and review totals and line details.</p>
@@ -126,3 +130,4 @@
         restocks = new();
     }
 }
+</AuthGuard>

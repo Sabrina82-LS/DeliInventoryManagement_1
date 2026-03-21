@@ -10,7 +10,8 @@ public static class V5RestocksEndpoints
     public static void MapV5RestocksEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/v5/restocks")
-            .WithTags("Restocks V5");
+            .WithTags("Restocks V5")
+            .RequireAuthorization("AdminOrStaff");
 
         group.MapPost("", async (
             CosmosClient cosmos,

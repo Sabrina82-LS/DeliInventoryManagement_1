@@ -30,14 +30,18 @@ main {
    Top Navigation Bar (force styles on NavLink)
    ========================================= */
 
+/* =========================================
+   Top Navigation Bar
+   ========================================= */
+
 .topbar {
     height: 64px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 18px;
-    background: rgba(255, 255, 255, 0.92);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    background: #14181f;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     position: sticky;
     top: 0;
     z-index: 20;
@@ -53,7 +57,7 @@ main {
 .brand {
     font-weight: 800;
     font-size: 18px;
-    color: #111827;
+    color: #ffffff;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -81,26 +85,26 @@ main {
     justify-content: center;
     height: 36px;
     padding: 0 14px;
-    border-radius: 999px; /* pill */
+    border-radius: 999px;
     text-decoration: none;
     font-weight: 700;
     font-size: 14px;
-    color: rgba(17, 24, 39, 0.85);
-    border: 1px solid rgba(17, 24, 39, 0.12);
-    background: rgba(255, 255, 255, 0.6);
+    color: #f4f6f8;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.04);
     transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
 }
 
     .topbar ::deep .toplink:hover {
-        background: rgba(255, 165, 0, 0.18);
-        border-color: rgba(255, 165, 0, 0.55);
+        background: rgba(255, 255, 255, 0.10);
+        border-color: rgba(255, 255, 255, 0.24);
         transform: translateY(-1px);
     }
 
     .topbar ::deep .toplink.active {
-        background: rgba(255, 165, 0, 0.28);
-        border-color: rgba(255, 165, 0, 0.75);
-        color: #111827;
+        background: #d98b2b;
+        border-color: #d98b2b;
+        color: #ffffff;
         transform: none;
     }
 

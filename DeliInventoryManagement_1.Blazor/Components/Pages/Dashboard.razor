@@ -1,121 +1,156 @@
 ﻿@page "/dashboard"
-@using DeliInventoryManagement_1.Blazor.Models
+@implements IDisposable
 @using DeliInventoryManagement_1.Blazor.Models.V5
+@using DeliInventoryManagement_1.Blazor.Services.Auth
+
 @inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
+@inject AuthState AuthState
 @inject NavigationManager NavManager
-@rendermode InteractiveServer
 
-<div class="dashboard-wrap">
-    <h1 class="dashboard-title">Dashboard</h1>
+<AuthGuard>
+    <div class="dashboard-wrap">
+        <h1 class="dashboard-title">Dashboard</h1>
 
-    @if (isLoading)
-    {
-        <div class="panel">
-            <p class="muted">Loading...</p>
-        </div>
-    }
-    else if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <div class="panel panel-danger">
-            <strong>Error:</strong> @errorMessage
-        </div>
-    }
-    else
-    {
-        <!-- KPI Cards -->
-        <section class="kpi-grid">
-            <div class="kpi-card">
-                <div class="kpi-label">Total Products</div>
-                <div class="kpi-value">@totalProducts</div>
-            </div>
-
-            <div class="kpi-card">
-                <div class="kpi-label">Total Stock Quantity</div>
-                <div class="kpi-value">@totalStockQty</div>
-            </div>
-
-            <div class="kpi-card">
-                <div class="kpi-label">Today's Sales (Total)</div>
-                <div class="kpi-value">@todaysSales</div>
-                <div class="kpi-footnote">(from V5 Sales)</div>
-            </div>
-
-            <div class="kpi-card">
-                <div class="kpi-label">Suppliers</div>
-                <div class="kpi-value">—</div>
-                <div class="kpi-footnote">(coming in V5)</div>
-            </div>
-        </section>
-
-        <!-- Main content -->
-        <section class="dashboard-grid">
-            <!-- Low stock panel -->
+        @if (isLoading)
+        {
             <div class="panel">
-                <h2 class="panel-title">Low Stock (Top 5)</h2>
-
-                @if (lowStockProducts.Count == 0)
-                {
-                    <p class="muted">No low-stock items.</p>
-                }
-                else
-                {
-                    <div class="table-wrap">
-                        <table class="table-clean">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Category</th>
-                                    <th class="num">Quantity</th>
-                                    <th class="num">Reorder Level</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @foreach (var p in lowStockProducts)
-                                {
-                                    <tr>
-                                        <td>@p.Name</td>
-                                        <td class="muted">@p.CategoryName</td>
-                                        <td class="num">@p.Quantity</td>
-                                        <td class="num">@p.ReorderLevel</td>
-                                    </tr>
-                                }
-                            </tbody>
-                        </table>
-                    </div>
-                }
+                <p class="muted">Loading...</p>
             </div>
-
-            <!-- Quick links panel -->
-            <div class="panel">
-                <h2 class="panel-title">Quick Links</h2>
-
-                <div class="quick-links">
-                    <NavLink class="quick-link btn-products" href="/products" Match="NavLinkMatch.Prefix">Products</NavLink>
-                    <NavLink class="quick-link btn-stock" href="/stock" Match="NavLinkMatch.Prefix">Stock</NavLink>
-                    <NavLink class="quick-link btn-sales" href="/sales" Match="NavLinkMatch.Prefix">Sales</NavLink>
-                    <NavLink class="quick-link btn-restocks" href="/restocks" Match="NavLinkMatch.Prefix">Restocks</NavLink>
-                    <NavLink class="quick-link btn-reports" href="/reports" Match="NavLinkMatch.Prefix">Reports</NavLink>
+        }
+        else if (!string.IsNullOrEmpty(errorMessage))
+        {
+            <div class="panel panel-danger">
+                <strong>Error:</strong> @errorMessage
+            </div>
+        }
+        else
+        {
+            <!-- KPI Cards -->
+            <section class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Products</div>
+                    <div class="kpi-value">@totalProducts</div>
                 </div>
-            </div>
-        </section>
-    }
-</div>
+
+                <div class="kpi-card">
+                    <div class="kpi-label">Total Stock Quantity</div>
+                    <div class="kpi-value">@totalStockQty</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-label">Today's Sales (Total)</div>
+                    <div class="kpi-value">@todaysSales</div>
+                    <div class="kpi-footnote">(from V5 Sales)</div>
+                </div>
+
+                <div class="kpi-card">
+                    <div class="kpi-label">Suppliers</div>
+                    <div class="kpi-value">—</div>
+                    <div class="kpi-footnote">(coming in V5)</div>
+                </div>
+            </section>
+
+            <!-- Main content -->
+            <section class="dashboard-grid">
+                <!-- Low stock panel -->
+                <div class="panel">
+                    <h2 class="panel-title">Low Stock (Top 5)</h2>
+
+                    @if (lowStockProducts.Count == 0)
+                    {
+                        <p class="muted">No low-stock items.</p>
+                    }
+                    else
+                    {
+                        <div class="table-wrap">
+                            <table class="table-clean">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Category</th>
+                                        <th class="num">Quantity</th>
+                                        <th class="num">Reorder Level</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var p in lowStockProducts)
+                                    {
+                                        <tr>
+                                            <td>@p.Name</td>
+                                            <td class="muted">@p.CategoryName</td>
+                                            <td class="num">@p.Quantity</td>
+                                            <td class="num">@p.ReorderLevel</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+
+                <!-- Quick links panel -->
+                <div class="panel">
+                    <h2 class="panel-title">Quick Links</h2>
+
+                    <div class="quick-links">
+                        <NavLink class="quick-link btn-products" href="/products" Match="NavLinkMatch.Prefix">Products</NavLink>
+                        <NavLink class="quick-link btn-stock" href="/stock" Match="NavLinkMatch.Prefix">Stock</NavLink>
+                        <NavLink class="quick-link btn-sales" href="/sales" Match="NavLinkMatch.Prefix">Sales</NavLink>
+                        <NavLink class="quick-link btn-restocks" href="/restocks" Match="NavLinkMatch.Prefix">Restocks</NavLink>
+                        <NavLink class="quick-link btn-reports" href="/reports" Match="NavLinkMatch.Prefix">Reports</NavLink>
+                    </div>
+                </div>
+            </section>
+        }
+    </div>
+</AuthGuard>
 
 @code {
-    bool isLoading = true;
-    string? errorMessage;
+    private bool isLoading = true;
+    private string? errorMessage;
 
-    int totalProducts;
-    int totalStockQty;
-    decimal todaysSales;
+    private int totalProducts;
+    private int totalStockQty;
+    private decimal todaysSales;
 
-    List<ProductV5Dto> lowStockProducts = new();
+    private List<ProductV5Dto> lowStockProducts = new();
+    private bool _loaded;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
+    {
+        AuthState.OnChange += HandleAuthChanged;
+    }
+
+    private void HandleAuthChanged()
+    {
+        InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_loaded)
+            return;
+
+        if (!AuthState.IsReady)
+            return;
+
+        if (!AuthState.IsAuthenticated)
+        {
+            NavManager.NavigateTo("/login?returnUrl=/dashboard");
+            return;
+        }
+
+        _loaded = true;
+        await LoadDashboardAsync();
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task LoadDashboardAsync()
     {
         try
         {
             isLoading = true;
+            errorMessage = null;
 
             var products = await DashboardService.GetAllProductsAsync();
 
@@ -143,5 +178,10 @@
         {
             isLoading = false;
         }
+    }
+
+    public void Dispose()
+    {
+        AuthState.OnChange -= HandleAuthChanged;
     }
 }
