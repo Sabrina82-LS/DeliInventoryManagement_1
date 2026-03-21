@@ -11,7 +11,7 @@ public static class V5RestocksEndpoints
     {
         var group = app.MapGroup("/api/v5/restocks")
             .WithTags("Restocks V5")
-            .RequireAuthorization("AdminOrStaff");
+            .RequireAuthorization();
 
         group.MapPost("", async (
             CosmosClient cosmos,

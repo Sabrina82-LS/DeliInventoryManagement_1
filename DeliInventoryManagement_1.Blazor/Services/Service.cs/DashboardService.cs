@@ -3,8 +3,9 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using DeliInventoryManagement_1.Blazor.Models.V5;
 using DeliInventoryManagement_1.Blazor.Services.Auth;
+using DeliInventoryManagement_1.Blazor.Services.IService;
 
-namespace DeliInventoryManagement_1.Blazor.Services;
+namespace DeliInventoryManagement_1.Blazor.Services.Service.cs;
 
 public sealed class DashboardService : IDashboardService
 {

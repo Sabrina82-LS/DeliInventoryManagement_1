@@ -1,6 +1,6 @@
 ﻿using DeliInventoryManagement_1.Blazor.Models.Report;
 
-namespace DeliInventoryManagement_1.Blazor.Services;
+namespace DeliInventoryManagement_1.Blazor.Services.IService;
 
 public interface IReportsService
 {

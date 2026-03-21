@@ -1,8 +1,9 @@
 ﻿@page "/products"
 
-@using Microsoft.JSInterop
 @using DeliInventoryManagement_1.Blazor.Models.V5
-@inject DeliInventoryManagement_1.Blazor.Services.IProductsService ProductsService
+@using DeliInventoryManagement_1.Blazor.Services.IService
+@using Microsoft.JSInterop
+@inject IProductsService ProductsService
 @inject IJSRuntime JS
 
 <PageTitle>Products</PageTitle>

@@ -1,6 +1,8 @@
 using DeliInventoryManagement_1.Blazor.Components;
 using DeliInventoryManagement_1.Blazor.Services;
 using DeliInventoryManagement_1.Blazor.Services.Auth;
+using DeliInventoryManagement_1.Blazor.Services.IService;
+using DeliInventoryManagement_1.Blazor.Services.Service.cs;
 using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -47,9 +49,6 @@ builder.Services.AddScoped<AuthState>();
 // Login / Logout / Session restore service
 builder.Services.AddScoped<AuthService>();
 
-// DelegatingHandler that injects JWT token into API calls
-builder.Services.AddTransient<JwtAuthHandler>();
-
 
 // ======================================================
 // 5) HttpClient configuration
@@ -65,57 +64,52 @@ builder.Services.AddHttpClient("ApiNoAuth", client =>
 
 
 // ------------------------------------
-// Client WITH JWT auth handler
+// Default API client
+// Protected services now apply the JWT
+// manually using AuthState
 // ------------------------------------
 builder.Services.AddHttpClient("Api", client =>
 {
     client.BaseAddress = apiUri;
-})
-.AddHttpMessageHandler<JwtAuthHandler>();
+});
 
 
 // ------------------------------------
-// Typed API services (protected calls)
+// Typed API services
 // ------------------------------------
 builder.Services.AddHttpClient<IDashboardService, DashboardService>(client =>
 {
     client.BaseAddress = apiUri;
-})
-.AddHttpMessageHandler<JwtAuthHandler>();
+});
 
 builder.Services.AddHttpClient<IProductsService, ProductsService>(client =>
 {
     client.BaseAddress = apiUri;
-})
-.AddHttpMessageHandler<JwtAuthHandler>();
+});
 
 builder.Services.AddHttpClient<ISalesService, SalesService>(client =>
 {
     client.BaseAddress = apiUri;
-})
-.AddHttpMessageHandler<JwtAuthHandler>();
+});
 
 builder.Services.AddHttpClient<IRestockService, RestockService>(client =>
 {
     client.BaseAddress = apiUri;
-})
-.AddHttpMessageHandler<JwtAuthHandler>();
+});
 
 builder.Services.AddHttpClient<ISuppliersServiceV5, SuppliersServiceV5>(client =>
 {
     client.BaseAddress = apiUri;
-})
-.AddHttpMessageHandler<JwtAuthHandler>();
+});
 
 builder.Services.AddHttpClient<IReportsService, ReportsService>(client =>
 {
     client.BaseAddress = apiUri;
-})
-.AddHttpMessageHandler<JwtAuthHandler>();
+});
 
 
 // ------------------------------------------------------
-// Default HttpClient fallback (uses authenticated client)
+// Default HttpClient fallback
 // ------------------------------------------------------
 builder.Services.AddScoped(sp =>
     sp.GetRequiredService<IHttpClientFactory>().CreateClient("Api"));

@@ -2,8 +2,9 @@
 @implements IDisposable
 @using DeliInventoryManagement_1.Blazor.Models.V5
 @using DeliInventoryManagement_1.Blazor.Services.Auth
+@using DeliInventoryManagement_1.Blazor.Services.IService
 
-@inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
+@inject IDashboardService DashboardService
 @inject AuthState AuthState
 @inject NavigationManager NavManager
 
