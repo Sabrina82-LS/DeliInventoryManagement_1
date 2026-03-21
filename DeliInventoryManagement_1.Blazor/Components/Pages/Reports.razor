@@ -1,9 +1,11 @@
 ﻿@page "/reports"
+
 @using System.Linq
 @using DeliInventoryManagement_1.Blazor.Models.V5
 @inject DeliInventoryManagement_1.Blazor.Services.IDashboardService DashboardService
-@rendermode InteractiveServer
 
+
+<AuthGuard>
 <div class="reports-wrap">
     <h1 class="reports-title">Reports</h1>
     <p class="muted">Choose a report below or view the Stock report summary.</p>
@@ -228,3 +230,4 @@
         showLowStockOnly = false;
     }
 }
+</AuthGuard>

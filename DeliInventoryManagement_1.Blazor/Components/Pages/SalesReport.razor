@@ -1,8 +1,10 @@
 ﻿@page "/reports/sales"
+
 @using DeliInventoryManagement_1.Blazor.Models.Report
 @inject DeliInventoryManagement_1.Blazor.Services.IReportsService ReportsService
-@rendermode InteractiveServer
 
+
+<AuthGuard>
 <div class="salesreport-wrap">
     <h1 class="salesreport-title">Sales Report</h1>
     <p class="muted">Filter by date range and review totals and line details.</p>
@@ -126,3 +128,4 @@
         sales = new();
     }
 }
+</AuthGuard>

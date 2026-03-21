@@ -1,28 +1,44 @@
 ﻿using System.Net;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using DeliInventoryManagement_1.Blazor.Models.V5;
+using DeliInventoryManagement_1.Blazor.Services.Auth;
 
 namespace DeliInventoryManagement_1.Blazor.Services;
 
 public sealed class DashboardService : IDashboardService
 {
     private readonly HttpClient _http;
+    private readonly AuthState _authState;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    public DashboardService(HttpClient http)
+    public DashboardService(HttpClient http, AuthState authState)
     {
         _http = http;
+        _authState = authState;
     }
 
-    // -------------------------
-    // Helper HTTP
-    // -------------------------
+    private void ApplyBearerToken()
+    {
+        if (!string.IsNullOrWhiteSpace(_authState.Token))
+        {
+            _http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", _authState.Token);
+        }
+        else
+        {
+            _http.DefaultRequestHeaders.Authorization = null;
+        }
+    }
+
     private async Task<T?> GetAsync<T>(string url)
     {
+        ApplyBearerToken();
+
         using var resp = await _http.GetAsync(url);
 
         if (resp.StatusCode == HttpStatusCode.NotFound)
@@ -34,12 +50,8 @@ public sealed class DashboardService : IDashboardService
         return JsonSerializer.Deserialize<T>(json, JsonOpts);
     }
 
-    // -------------------------
-    // V5 Products (API)
-    // -------------------------
     public async Task<List<ProductV5Dto>> GetAllProductsAsync(string? search = null, string? categoryId = null)
     {
-        // abordagem segura: busca tudo e filtra no client
         var products = await GetAsync<List<ProductV5Dto>>("/api/v5/products") ?? new List<ProductV5Dto>();
 
         IEnumerable<ProductV5Dto> q = products;
@@ -76,17 +88,11 @@ public sealed class DashboardService : IDashboardService
             .ToList();
     }
 
-    // -------------------------
-    // V5 Sales (API) ✅ ADICIONADO
-    // -------------------------
     public async Task<List<SaleV5Dto>> GetAllSalesAsync()
     {
         return await GetAsync<List<SaleV5Dto>>("/api/v5/sales") ?? new List<SaleV5Dto>();
     }
 
-    // -------------------------
-    // Dashboard summary
-    // -------------------------
     public async Task<ProductSummaryDto> GetProductSummaryAsync()
     {
         var products = await GetAllProductsAsync();
@@ -109,13 +115,8 @@ public sealed class DashboardService : IDashboardService
             .ToList();
     }
 
-    // -------------------------
-    // Suppliers (opcional)
-    // -------------------------
     public Task<int> GetSupplierCountAsync()
     {
-        // Se você ainda não tem endpoint /api/v5/suppliers no backend,
-        // deixa 0 para não quebrar o dashboard.
         return Task.FromResult(0);
     }
 }

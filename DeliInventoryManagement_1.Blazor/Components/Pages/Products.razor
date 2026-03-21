@@ -1,0 +1,399 @@
+﻿@page "/products"
+
+@using Microsoft.JSInterop
+@using DeliInventoryManagement_1.Blazor.Models.V5
+@inject DeliInventoryManagement_1.Blazor.Services.IProductsService ProductsService
+@inject IJSRuntime JS
+
+<PageTitle>Products</PageTitle>
+
+<AuthGuard>
+
+<div class="products-page">
+    <h1 class="page-title">Products</h1>
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(successMessage))
+    {
+        <div class="alert alert-success">@successMessage</div>
+    }
+
+    <div class="products-grid">
+        <div class="products-card">
+            <h2 class="card-title">@(isEditing ? "Edit Product" : "Add Product")</h2>
+            <p class="card-subtitle">Create or update products in the inventory.</p>
+
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Name</label>
+                    <input class="form-control" @bind="form.Name" />
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Category</label>
+                    <select class="form-select" @bind="selectedCategoryId" @bind:after="SyncSelectedCategory">
+                        <option value="">-- Select category --</option>
+                        @foreach (var category in categories)
+                        {
+                            <option value="@category.Id">@category.Name</option>
+                        }
+                    </select>
+
+                    @if (!string.IsNullOrWhiteSpace(form.CategoryId))
+                    {
+                        <small class="text-muted">Selected: @form.CategoryName (@form.CategoryId)</small>
+                    }
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" class="form-control" @bind="form.Quantity" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Cost</label>
+                    <input type="number" step="0.01" class="form-control" @bind="form.Cost" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Selling Price</label>
+                    <input type="number" step="0.01" class="form-control" @bind="form.Price" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Reorder Level</label>
+                    <input type="number" class="form-control" @bind="form.ReorderLevel" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Reorder Qty</label>
+                    <input type="number" class="form-control" @bind="form.ReorderQty" />
+                </div>
+
+                <div class="col-md-6">
+                    <label class="form-label">Suggested Price</label>
+                    <div class="price-tools">
+                        <button type="button" class="btn btn-product-edit" @onclick="() => ApplyMarkup(30)">+30%</button>
+                        <button type="button" class="btn btn-product-edit" @onclick="() => ApplyMarkup(40)">+40%</button>
+                        <button type="button" class="btn btn-product-edit" @onclick="() => ApplyMarkup(50)">+50%</button>
+                    </div>
+                </div>
+
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" @bind="form.IsActive" id="isActiveCheck" />
+                        <label class="form-check-label" for="isActiveCheck">Active</label>
+                    </div>
+                </div>
+
+                <div class="col-12">
+                    <div class="price-summary">
+                        <span><strong>Margin:</strong> @MarginValue.ToString("0.00")</span>
+                        <span><strong>Markup:</strong> @MarkupPercent.ToString("0.##")%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-product-save" @onclick="SaveProductAsync" disabled="@isSaving">
+                    @(isEditing ? "Update Product" : "Add Product")
+                </button>
+
+                <button class="btn btn-product-cancel" type="button" @onclick="ClearForm">
+                    Cancel
+                </button>
+            </div>
+        </div>
+
+        <div class="products-card">
+            <div class="table-card-header">
+                <h2 class="table-card-title">Products List</h2>
+                <button class="btn btn-product-refresh" @onclick="LoadProductsAsync">Refresh</button>
+            </div>
+
+            @if (isLoading)
+            {
+                <p class="table-message">Loading products...</p>
+            }
+            else if (products.Count == 0)
+            {
+                <p class="table-message">No products found.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Category</th>
+                                <th>Qty</th>
+                                <th>Cost</th>
+                                <th>Selling Price</th>
+                                <th>Reorder</th>
+                                <th>Status</th>
+                                <th>Updated</th>
+                                <th style="width: 180px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var product in products)
+                            {
+                                <tr>
+                                    <td>@product.Name</td>
+                                    <td>@product.CategoryName</td>
+                                    <td>@product.Quantity</td>
+                                    <td>@product.Cost.ToString("0.00")</td>
+                                    <td>@product.Price.ToString("0.00")</td>
+                                    <td>@product.ReorderLevel / @product.ReorderQty</td>
+                                    <td>
+                                        @if (product.IsActive)
+                                        {
+                                            <span class="status-badge active">Active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="status-badge inactive">Inactive</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (product.UpdatedAtUtc != default)
+                                        {
+                                            @product.UpdatedAtUtc.ToString("dd/MM/yyyy HH:mm")
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="table-actions">
+                                            <button class="btn btn-product-edit" @onclick="() => EditProduct(product)">
+                                                Edit
+                                            </button>
+                                            <button class="btn btn-product-delete" @onclick="() => DeleteProductAsync(product.Id)">
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+</AuthGuard>
+
+@code {
+    private List<ProductV5Dto> products = new();
+
+    private ProductV5Dto form = new()
+    {
+        Type = "Product",
+        ReorderLevel = 5,
+        ReorderQty = 0,
+        IsActive = true
+    };
+
+    private bool isLoading = true;
+    private bool isSaving = false;
+    private bool isEditing = false;
+
+    private string? editingId;
+    private string? errorMessage;
+    private string? successMessage;
+    private string? selectedCategoryId;
+
+    private List<CategoryOption> categories = new()
+    {
+        new("CAT#DAIRY", "Dairy"),
+        new("CAT#BAKERY", "Bakery"),
+        new("CAT#DRINKS", "Drinks"),
+        new("CAT#FROZEN", "Frozen"),
+        new("CAT#MEAT", "Meat"),
+        new("CAT#VEGETABLES", "Vegetables")
+    };
+
+    private decimal MarginValue => form.Price - form.Cost;
+
+    private decimal MarkupPercent =>
+        form.Cost <= 0 ? 0 : ((form.Price - form.Cost) / form.Cost) * 100m;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProductsAsync();
+    }
+
+    private async Task LoadProductsAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            successMessage = null;
+
+            products = await ProductsService.GetProductsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error loading products: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void SyncSelectedCategory()
+    {
+        var selected = categories.FirstOrDefault(c => c.Id == selectedCategoryId);
+
+        if (selected is null)
+        {
+            form.CategoryId = "";
+            form.CategoryName = "";
+            return;
+        }
+
+        form.CategoryId = selected.Id;
+        form.CategoryName = selected.Name;
+    }
+
+    private void ApplyMarkup(decimal percent)
+    {
+        if (form.Cost <= 0)
+            return;
+
+        form.Price = Math.Round(form.Cost * (1 + (percent / 100m)), 2);
+    }
+
+    private void EditProduct(ProductV5Dto product)
+    {
+        isEditing = true;
+        editingId = product.Id;
+
+        form = new ProductV5Dto
+        {
+            Id = product.Id,
+            Pk = product.Pk,
+            Type = product.Type,
+            Name = product.Name,
+            CategoryId = product.CategoryId,
+            CategoryName = product.CategoryName,
+            Quantity = product.Quantity,
+            Cost = product.Cost,
+            Price = product.Price,
+            ReorderLevel = product.ReorderLevel,
+            ReorderQty = product.ReorderQty,
+            IsActive = product.IsActive,
+            CreatedAtUtc = product.CreatedAtUtc,
+            UpdatedAtUtc = product.UpdatedAtUtc
+        };
+
+        selectedCategoryId = product.CategoryId;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private async Task SaveProductAsync()
+    {
+        try
+        {
+            isSaving = true;
+            errorMessage = null;
+            successMessage = null;
+
+            SyncSelectedCategory();
+
+            if (string.IsNullOrWhiteSpace(form.Name))
+            {
+                errorMessage = "Name is required.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(form.CategoryId))
+            {
+                errorMessage = "Category is required.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(form.Type))
+                form.Type = "Product";
+
+            if (string.IsNullOrWhiteSpace(form.Pk))
+                form.Pk = "STORE#1";
+
+            bool ok;
+
+            if (isEditing && !string.IsNullOrWhiteSpace(editingId))
+            {
+                ok = await ProductsService.UpdateProductAsync(editingId, form);
+                successMessage = ok ? "Product updated successfully." : "Could not update product.";
+            }
+            else
+            {
+                ok = await ProductsService.CreateProductAsync(form);
+                successMessage = ok ? "Product created successfully." : "Could not create product.";
+            }
+
+            if (ok)
+            {
+                ClearForm();
+                await LoadProductsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error saving product: {ex.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task DeleteProductAsync(string id)
+    {
+        var confirmed = await JS.InvokeAsync<bool>("confirm", "Are you sure you want to delete this product?");
+        if (!confirmed)
+            return;
+
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            var ok = await ProductsService.DeleteProductAsync(id);
+            successMessage = ok ? "Product deleted successfully." : "Could not delete product.";
+
+            if (ok)
+                await LoadProductsAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error deleting product: {ex.Message}";
+        }
+    }
+
+    private void ClearForm()
+    {
+        form = new ProductV5Dto
+        {
+            Type = "Product",
+            ReorderLevel = 5,
+            ReorderQty = 0,
+            IsActive = true
+        };
+
+        selectedCategoryId = null;
+        isEditing = false;
+        editingId = null;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private sealed record CategoryOption(string Id, string Name);
+}

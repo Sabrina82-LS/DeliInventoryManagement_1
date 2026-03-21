@@ -1,75 +1,135 @@
 using DeliInventoryManagement_1.Blazor.Components;
 using DeliInventoryManagement_1.Blazor.Services;
+using DeliInventoryManagement_1.Blazor.Services.Auth;
+using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// =============================
-// 1) Razor Components (Server)
-// =============================
+// ======================================================
+// 1) Razor Components (Blazor Server - Interactive Mode)
+// ======================================================
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// =============================
-// 2) API Base URL (appsettings)
-// =============================
+// Allows services/components to access HttpContext if needed
+builder.Services.AddHttpContextAccessor();
+
+
+// ======================================================
+// 2) Read API Base URL from configuration
+//    (appsettings.json -> Api:BaseUrl)
+// ======================================================
 var apiBaseUrl = builder.Configuration["Api:BaseUrl"]?.Trim();
 
 if (string.IsNullOrWhiteSpace(apiBaseUrl))
     throw new InvalidOperationException("Missing configuration: Api:BaseUrl in appsettings.json");
 
-// Normaliza: garante que termina com "/"
+// Ensure trailing slash
 if (!apiBaseUrl.EndsWith("/"))
     apiBaseUrl += "/";
 
 var apiUri = new Uri(apiBaseUrl, UriKind.Absolute);
 
-// =============================
-// 3) HttpClient base para a API
-// =============================
 
-// Named client "Api" (centraliza BaseAddress)
+// ======================================================
+// 3) Browser Storage (Blazor Server)
+// ======================================================
+builder.Services.AddScoped<ProtectedLocalStorage>();
+
+
+// ======================================================
+// 4) Authentication State + Services
+// ======================================================
+
+// In-memory authentication state
+builder.Services.AddScoped<AuthState>();
+
+// Login / Logout / Session restore service
+builder.Services.AddScoped<AuthService>();
+
+// DelegatingHandler that injects JWT token into API calls
+builder.Services.AddTransient<JwtAuthHandler>();
+
+
+// ======================================================
+// 5) HttpClient configuration
+// ======================================================
+
+// ------------------------------------
+// Client WITHOUT auth (login only)
+// ------------------------------------
+builder.Services.AddHttpClient("ApiNoAuth", client =>
+{
+    client.BaseAddress = apiUri;
+});
+
+
+// ------------------------------------
+// Client WITH JWT auth handler
+// ------------------------------------
 builder.Services.AddHttpClient("Api", client =>
 {
     client.BaseAddress = apiUri;
-});
+})
+.AddHttpMessageHandler<JwtAuthHandler>();
 
-// Services tipados usando o mesmo BaseAddress
+
+// ------------------------------------
+// Typed API services (protected calls)
+// ------------------------------------
 builder.Services.AddHttpClient<IDashboardService, DashboardService>(client =>
 {
     client.BaseAddress = apiUri;
-});
+})
+.AddHttpMessageHandler<JwtAuthHandler>();
+
+builder.Services.AddHttpClient<IProductsService, ProductsService>(client =>
+{
+    client.BaseAddress = apiUri;
+})
+.AddHttpMessageHandler<JwtAuthHandler>();
 
 builder.Services.AddHttpClient<ISalesService, SalesService>(client =>
 {
     client.BaseAddress = apiUri;
-});
+})
+.AddHttpMessageHandler<JwtAuthHandler>();
 
 builder.Services.AddHttpClient<IRestockService, RestockService>(client =>
 {
     client.BaseAddress = apiUri;
-});
+})
+.AddHttpMessageHandler<JwtAuthHandler>();
 
 builder.Services.AddHttpClient<ISuppliersServiceV5, SuppliersServiceV5>(client =>
 {
     client.BaseAddress = apiUri;
-});
+})
+.AddHttpMessageHandler<JwtAuthHandler>();
 
-// ✅ NOVO: Reports (Sales Report + Restocks Report)
 builder.Services.AddHttpClient<IReportsService, ReportsService>(client =>
 {
     client.BaseAddress = apiUri;
-});
+})
+.AddHttpMessageHandler<JwtAuthHandler>();
 
-// ✅ HttpClient "default" para qualquer lugar que injete HttpClient diretamente
+
+// ------------------------------------------------------
+// Default HttpClient fallback (uses authenticated client)
+// ------------------------------------------------------
 builder.Services.AddScoped(sp =>
-    sp.GetRequiredService<IHttpClientFactory>().CreateClient("Api")
-);
+    sp.GetRequiredService<IHttpClientFactory>().CreateClient("Api"));
 
+
+// ======================================================
+// Build application
+// ======================================================
 var app = builder.Build();
 
-// =============================
-// 4) Pipeline
-// =============================
+
+// ======================================================
+// Middleware Pipeline
+// ======================================================
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Error", createScopeForErrors: true);
@@ -80,6 +140,10 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
 
+
+// ======================================================
+// Map Razor Components (Blazor)
+// ======================================================
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 

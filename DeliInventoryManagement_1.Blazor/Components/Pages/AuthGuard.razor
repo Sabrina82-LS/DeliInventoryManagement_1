@@ -1,0 +1,53 @@
+﻿@using DeliInventoryManagement_1.Blazor.Services.Auth
+@inject AuthState State
+@inject NavigationManager Nav
+@implements IDisposable
+
+@if (!State.IsReady)
+{
+    <div class="p-3 text-muted">Checking session...</div>
+}
+else if (State.IsAuthenticated)
+{
+    @ChildContent
+}
+else
+{
+    <div class="p-3 text-muted">Redirecting to login...</div>
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string RedirectTo { get; set; } = "/login";
+
+    protected override void OnInitialized()
+    {
+        State.OnChange += HandleAuthChanged;
+        HandleAuthChanged();
+    }
+
+    private void HandleAuthChanged()
+    {
+        if (!State.IsReady)
+            return;
+
+        if (!State.IsAuthenticated)
+        {
+            var relative = Nav.ToBaseRelativePath(Nav.Uri);
+            var returnUrl = string.IsNullOrWhiteSpace(relative)
+                ? "/dashboard"
+                : "/" + relative;
+
+            var encodedReturnUrl = Uri.EscapeDataString(returnUrl);
+            Nav.NavigateTo($"{RedirectTo}?returnUrl={encodedReturnUrl}", forceLoad: true);
+            return;
+        }
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        State.OnChange -= HandleAuthChanged;
+    }
+}

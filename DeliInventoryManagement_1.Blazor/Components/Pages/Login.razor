@@ -1,0 +1,76 @@
+﻿@page "/login"
+@inject NavigationManager Nav
+@inject DeliInventoryManagement_1.Blazor.Services.Auth.AuthService Auth
+
+<div class="login-shell">
+    <div class="login-card">
+        <h1 class="login-title">Welcome Back</h1>
+        <p class="login-subtitle">Sign in to access DeliInventoryManagement</p>
+
+        <div class="mb-3">
+            <label class="form-label">Email</label>
+            <input class="form-control" @bind="email" @bind:event="oninput" />
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-control" @bind="password" @bind:event="oninput" />
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(error))
+        {
+            <div class="alert alert-danger">@error</div>
+        }
+
+        <button class="btn btn-primary w-100" disabled="@isBusy" @onclick="DoLogin">
+            @(isBusy ? "Signing in..." : "Sign in")
+        </button>
+    </div>
+</div>
+
+@code {
+    private string email = "";
+    private string password = "";
+    private string error = "";
+    private bool isBusy = false;
+
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    private async Task DoLogin()
+    {
+        error = "";
+
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(password))
+        {
+            error = "Please enter email and password.";
+            return;
+        }
+
+        isBusy = true;
+
+        try
+        {
+            var ok = await Auth.LoginAsync(email, password);
+
+            if (!ok)
+            {
+                error = "Invalid email or password.";
+                return;
+            }
+
+            var target = "/dashboard";
+
+            if (!string.IsNullOrWhiteSpace(ReturnUrl))
+            {
+                target = ReturnUrl.StartsWith("/") ? ReturnUrl : "/" + ReturnUrl;
+            }
+
+            Nav.NavigateTo(target, true);
+        }
+        finally
+        {
+            isBusy = false;
+        }
+    }
+}

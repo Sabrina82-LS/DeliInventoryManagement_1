@@ -1,0 +1,113 @@
+﻿.login-shell {
+    min-height: calc(100vh - 64px);
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    position: relative;
+    background-image: url('/images/fresh-tomato-market.jpg');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+}
+
+    .login-shell::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: linear-gradient( to right, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.18) );
+    }
+
+.login-wrapper {
+    margin-top: 0;
+    padding-top: 0;
+    width: 100%;
+}
+
+.login-card {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 430px;
+    padding: 38px;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.18);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    color: #fff;
+}
+
+.login-title {
+    text-align: center;
+    margin-bottom: 10px;
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: #ffffff;
+    letter-spacing: 0.3px;
+}
+
+.login-subtitle {
+    text-align: center;
+    margin-bottom: 24px;
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 0.98rem;
+}
+
+.login-card .form-label {
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 8px;
+}
+
+.login-card .form-control {
+    border-radius: 12px;
+    min-height: 48px;
+    border: 1px solid rgba(255, 255, 255, 0.24);
+    background: rgba(255, 255, 255, 0.16);
+    color: #ffffff;
+    box-shadow: none;
+}
+
+    .login-card .form-control::placeholder {
+        color: rgba(255, 255, 255, 0.75);
+    }
+
+    .login-card .form-control:focus {
+        border-color: #f1a24f;
+        background: rgba(255, 255, 255, 0.22);
+        box-shadow: 0 0 0 0.2rem rgba(241, 162, 79, 0.18);
+        color: #ffffff;
+    }
+
+.login-card .btn-primary {
+    margin-top: 8px;
+    min-height: 48px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 1rem;
+    background: linear-gradient(135deg, #e28936, #c85a1d);
+    border: none;
+}
+
+    .login-card .btn-primary:hover {
+        filter: brightness(1.04);
+    }
+
+@media (max-width: 768px) {
+    .login-shell {
+        padding: 0;
+    }
+
+    .login-card {
+        max-width: calc(100% - 32px);
+        padding: 28px 22px;
+        border-radius: 18px;
+    }
+
+    .login-title {
+        font-size: 2rem;
+    }
+}

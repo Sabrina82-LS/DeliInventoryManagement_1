@@ -11,7 +11,8 @@ public static class AuthEndpointsV5
     public static IEndpointRouteBuilder MapAuthV5(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/api/v5/auth")
-            .WithTags("Auth V5");
+            .WithTags("Auth V5")
+            .AllowAnonymous();
 
         group.MapPost("/login", async (
             LoginRequest req,
