@@ -5,28 +5,28 @@ namespace DeliInventoryManagement_1.Api.Models;
 
 public class Supplier
 {
-    [JsonPropertyName("id")]
+    [JsonPropertyName(nameof(Id))]
     public string Id { get; set; } = default!;
 
 
-    [JsonProperty("Type")]
-    public string Type { get; set; } = "Supplier";
+    [JsonProperty(nameof(Type))]
+    public string Type { get; set; } = nameof(Supplier);
 
-    [JsonProperty("Name")]
+    [JsonProperty(nameof(Name))]
     public string Name { get; set; } = string.Empty;
 
-    [JsonProperty("ContactName")]
+    [JsonProperty(nameof(ContactName))]
     public string? ContactName { get; set; }
 
-    [JsonProperty("Phone")]
+    [JsonProperty(nameof(Phone))]
     public string? Phone { get; set; }
 
-    [JsonProperty("Email")]
+    [JsonProperty(nameof(Email))]
     public string? Email { get; set; }
 
-    [JsonProperty("Address")]
+    [JsonProperty(nameof(Address))]
     public string? Address { get; set; }
 
-    [JsonProperty("Notes")]
+    [JsonProperty(nameof(Notes))]
     public string? Notes { get; set; }
 }

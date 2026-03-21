@@ -161,5 +161,7 @@ public abstract class RabbitConsumerBase : BackgroundService
         _conn?.Dispose();
 
         base.Dispose();
+        GC.SuppressFinalize(this);
+
     }
 }

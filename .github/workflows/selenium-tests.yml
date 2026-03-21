@@ -1,0 +1,42 @@
+name: Selenium IDE Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      selenium:
+        image: selenium/standalone-chrome
+        ports:
+          - 4444:4444
+        options: --shm-size="2g"
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Install Selenium IDE Runner
+      run: npm install -g selenium-side-runner
+    
+    - name: Wait for Selenium
+      run: sleep 10
+    
+    - name: Run Selenium IDE Tests
+      run: |
+        mkdir -p test-results
+        selenium-side-runner \
+          --server http://localhost:4444/wd/hub \
+          --output-directory ./test-results \
+          *.side
+    
+    - name: Upload Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: test-results/
