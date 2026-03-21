@@ -1,98 +1,108 @@
-name: Test & Publish Coverage (xUnit + ReportGenerator)
+name: main - Build and Test
 
 on:
   workflow_dispatch:
   push:
-    branches: [ master ]
+    branches: [ main, Mock-simulation, develop ]
   pull_request:
+    branches: [ main, Mock-simulation]
 
-# Avoid overlapping Pages deployments
-concurrency:
-  group: "pages"
-  cancel-in-progress: true
-
-# Required for GitHub Pages deploy
 permissions:
   contents: read
-  pages: write
-  id-token: write
-
-env:
-  DOTNET_VERSION: "8.0.x"
+  checks: write
+  pull-requests: write
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
+    
+    services:
+      # RabbitMQ for messaging tests
+      rabbitmq:
+        image: rabbitmq:3-management
+        ports:
+          - 5672:5672
+          - 15672:15672
+        env:
+          RABBITMQ_DEFAULT_USER: admin
+          RABBITMQ_DEFAULT_PASS: admin123
+        options: >-
+          --health-cmd "rabbitmq-diagnostics ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      
+      # Cosmos DB Emulator for database tests
+      cosmosdb:
+        image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator
+        ports:
+          - 8081:8081
+          - 10251:10251
+          - 10252:10252
+          - 10253:10253
+          - 10254:10254
+        env:
+          AZURE_COSMOS_EMULATOR_PARTITION_COUNT: 10
+          AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE: false
+        options: >-
+          --health-cmd "curl -k https://localhost:8081/_explorer/emulator.pem || exit 1"
+          --health-interval 10s
+          --health-timeout 10s
+          --health-retries 20
+          --memory 3g
+    
     steps:
-      - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
 
-      # =====================================================
-      # Restore / Build (Solution-wide)
-      # =====================================================
-      - name: Restore
-        run: dotnet restore
+    - name: Restore dependencies
+      run: dotnet restore
 
-      - name: Build
-        run: dotnet build --no-restore -c Release
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
 
-      # (Opcional) Debug útil quando algo falha
-      - name: List repository root
-        run: ls -la
+    - name: Wait for Cosmos DB
+      run: |
+        echo "Waiting for Cosmos DB Emulator to be ready..."
+        for i in {1..30}; do
+          if curl -k -s https://localhost:8081/_explorer/emulator.pem > /dev/null; then
+            echo "Cosmos DB Emulator is ready!"
+            break
+          fi
+          echo "Waiting... ($i/30)"
+          sleep 5
+        done
 
-      # =====================================================
-      # Test (Solution-wide) + coverage (Coverlet collector)
-      # - Roda TODOS os projetos de teste encontrados
-      # - Gera coverage.cobertura.xml para o ReportGenerator
-      # =====================================================
-      - name: Test (xUnit) and collect coverage
-        run: >
-          dotnet test -c Release --no-build
-          --collect:"XPlat Code Coverage"
-          --logger "trx;LogFileName=test-results.trx"
+    - name: Test
+      run: dotnet test --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
+      env:
+        COSMOS_ENDPOINT: https://localhost:8081
+        COSMOS_KEY: C2y6yDjf5/R+ob0N8A7Cgv30VRDJIWEHLM+4QDU5DE2nQ9nDuVTqobD4b8mGGyPMbIZnqyMsEcaGQy67XIw/Jw==
+        RABBITMQ_HOST: localhost
+        RABBITMQ_PORT: 5672
+        RABBITMQ_USERNAME: admin
+        RABBITMQ_PASSWORD: admin123
 
-      # =====================================================
-      # Coverage report (HTML)
-      # =====================================================
-      - name: Install ReportGenerator
-        run: dotnet tool install -g dotnet-reportgenerator-globaltool
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results
+        path: TestResults/
+        retention-days: 30
 
-      - name: Generate HTML coverage report
-        run: |
-          export PATH="$PATH:~/.dotnet/tools"
-          reportgenerator \
-            -reports:**/coverage.cobertura.xml \
-            -targetdir:coveragereport \
-            -reporttypes:Html
-
-      # Make the HTML report available as a workflow artifact on PRs too
-      - name: Upload coverage as build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-html
-          path: coveragereport
-
-      # Only package for Pages when merging/pushing to master
-      - name: Upload Pages artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ./coveragereport
-
-  deploy:
-    # Only deploy on push to master
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    needs: build-and-test
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+    - name: Test Report
+      uses: dorny/test-reporter@v1
+      if: always()
+      with:
+        name: Test Report
+        path: TestResults/*.trx
+        reporter: dotnet-trx
+        fail-on-error: true

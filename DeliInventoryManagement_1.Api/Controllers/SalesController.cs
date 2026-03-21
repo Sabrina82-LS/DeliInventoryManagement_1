@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using Microsoft.Azure.Cosmos.Core.Networking;
+using System.Text.Json.Serialization;
 
 namespace DeliInventoryManagement_1.Api.Models;
 
@@ -19,6 +20,7 @@ public class Sale
     [JsonPropertyName("CategoryId")]
     public string CategoryId { get; set; } = default!;
 
+   
     [JsonPropertyName("Quantity")]
     public int Quantity { get; set; }
 

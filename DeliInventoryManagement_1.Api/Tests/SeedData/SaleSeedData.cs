@@ -2,7 +2,7 @@
 using DeliInventoryManagement_1.Api.Models;
 
 
-namespace DeliInventoryManagement_1.Api.Tests;
+namespace DeliInventoryManagement_1.Api.Tests.SeedData;
 
 public static class SaleSeedData
 {

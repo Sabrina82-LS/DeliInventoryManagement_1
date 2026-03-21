@@ -32,7 +32,7 @@ public static class ProductSeed
                 products.Add(new Product
                 {
                     Id = id,
-                    Type = "Product",
+                    Type = nameof(Product),
                     Name = group.Names[i],
                     CategoryId = group.CatId,
                     CategoryName = group.CatName,
