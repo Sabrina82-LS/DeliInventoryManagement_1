@@ -2,7 +2,7 @@
 
 public class AppUser
 {
-    public string id { get; set; } = "";
+    public string id { get; set; } = Guid.NewGuid().ToString("N");
     public string pk { get; set; } = "USER";
 
     public string Email { get; set; } = "";

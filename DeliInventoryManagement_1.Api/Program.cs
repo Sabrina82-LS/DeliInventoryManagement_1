@@ -237,6 +237,9 @@ static async Task EnsureCosmosSchemaAsync(WebApplication app)
     // ✅ NEW: Users container
     await db.CreateContainerIfNotExistsAsync(new ContainerProperties("Users", "/pk"));
 }
+
+// Make Program class visible to tests
+
 static async Task EnsureSeedUsersAsync(WebApplication app)
 {
     using var scope = app.Services.CreateScope();
@@ -246,7 +249,5 @@ static async Task EnsureSeedUsersAsync(WebApplication app)
 
     await UserSeed.EnsureUsersAsync(cosmos, config);
 }
-public partial class Program
-{
-  
-}
+
+public partial class Program { }

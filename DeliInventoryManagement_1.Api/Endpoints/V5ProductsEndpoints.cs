@@ -13,7 +13,7 @@ public static class V5ProductsEndpoints
         // ✅ Products = AdminOnly (Admin tem acesso total)
         var group = v5.MapGroup("/products")
             .WithTags("5 - Inventory V5 (Hybrid Cosmos /pk)")
-            .RequireAuthorization("AdminOnly");
+            .RequireAuthorization();
 
         // GET /api/v5/products
         group.MapGet("", async (CosmosContainerFactory factory) =>

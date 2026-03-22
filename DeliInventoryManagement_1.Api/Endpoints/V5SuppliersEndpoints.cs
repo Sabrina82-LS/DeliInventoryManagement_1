@@ -9,7 +9,8 @@ public static class V5SuppliersEndpoints
     public static void MapV5Suppliers(this WebApplication app)
     {
         var group = app.MapGroup("/api/v5/suppliers")
-            .WithTags("Suppliers V5");
+            .WithTags("Suppliers V5")
+            .RequireAuthorization("AdminOnly"); 
 
         // GET /api/v5/suppliers
         group.MapGet("", async (CosmosClient cosmos, IConfiguration cfg) =>

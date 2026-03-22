@@ -1,25 +1,45 @@
-﻿using System.Net;
+﻿using DeliInventoryManagement_1.Blazor.Models.Report;
+using DeliInventoryManagement_1.Blazor.Services.Auth;
+using DeliInventoryManagement_1.Blazor.Services.IService;
+using System.Net;
+using System.Net.Http.Headers;
 using System.Text.Json;
-using DeliInventoryManagement_1.Blazor.Models.Report;
 
 namespace DeliInventoryManagement_1.Blazor.Services;
 
 public sealed class ReportsService : IReportsService
 {
     private readonly HttpClient _http;
+    private readonly AuthState _authState;
 
     private static readonly JsonSerializerOptions JsonOpts = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    public ReportsService(HttpClient http)
+    public ReportsService(HttpClient http, AuthState authState)
     {
         _http = http;
+        _authState = authState;
+    }
+
+    private void ApplyBearerToken()
+    {
+        if (!string.IsNullOrWhiteSpace(_authState.Token))
+        {
+            _http.DefaultRequestHeaders.Authorization =
+                new AuthenticationHeaderValue("Bearer", _authState.Token);
+        }
+        else
+        {
+            _http.DefaultRequestHeaders.Authorization = null;
+        }
     }
 
     private async Task<T?> GetAsync<T>(string url)
     {
+        ApplyBearerToken();
+
         using var resp = await _http.GetAsync(url);
 
         if (resp.StatusCode == HttpStatusCode.NotFound)
@@ -33,7 +53,6 @@ public sealed class ReportsService : IReportsService
 
     private static string BuildDateQuery(DateTime? from, DateTime? to)
     {
-        // Monta ?from=YYYY-MM-DD&to=YYYY-MM-DD (sem pk!)
         var parts = new List<string>();
 
         if (from.HasValue)

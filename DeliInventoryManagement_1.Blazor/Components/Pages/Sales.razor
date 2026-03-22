@@ -1,13 +1,17 @@
 ﻿@page "/sales"
-@using DeliInventoryManagement_1.Blazor.Models.V5
+
 @using DeliInventoryManagement_1.Blazor.Models.CreateLineRequest
 @using DeliInventoryManagement_1.Blazor.Models.CreateRequest
+@using DeliInventoryManagement_1.Blazor.Models.V5
 @using DeliInventoryManagement_1.Blazor.Services
+@using DeliInventoryManagement_1.Blazor.Services.IService
 @inject IDashboardService DashboardService
 @inject ISalesService SalesService
 @inject NavigationManager Nav
-@rendermode InteractiveServer
 
+
+
+<AuthGuard>
 <div class="sales-wrap">
     <h1 class="sales-title">Sales</h1>
 
@@ -308,3 +312,4 @@
         }
     }
 }
+</AuthGuard>

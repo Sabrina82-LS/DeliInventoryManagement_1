@@ -1,0 +1,34 @@
+﻿@using DeliInventoryManagement_1.Blazor.Services.Auth
+@inject AuthService Auth
+@inject AuthState State
+
+@if (!State.IsReady)
+{
+    <div class="p-3 text-muted">Loading session...</div>
+}
+else
+{
+    @ChildContent
+}
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+            return;
+
+        try
+        {
+            await Auth.InitializeFromStorageAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Auth bootstrap error: {ex.Message}");
+            State.Clear();
+        }
+
+        StateHasChanged();
+    }
+}
