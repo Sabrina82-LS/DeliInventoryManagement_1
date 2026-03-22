@@ -249,4 +249,5 @@ static async Task EnsureSeedUsersAsync(WebApplication app)
 
     await UserSeed.EnsureUsersAsync(cosmos, config);
 }
+
 public partial class Program { }

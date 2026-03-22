@@ -87,6 +87,8 @@ builder.Services.AddHttpClient<IProductsService, ProductsService>(client =>
     client.BaseAddress = apiUri;
 });
 
+
+
 builder.Services.AddHttpClient<ISalesService, SalesService>(client =>
 {
     client.BaseAddress = apiUri;
