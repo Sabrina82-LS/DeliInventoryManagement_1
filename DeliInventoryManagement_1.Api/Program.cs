@@ -250,5 +250,4 @@ static async Task EnsureSeedUsersAsync(WebApplication app)
     await UserSeed.EnsureUsersAsync(cosmos, config);
 }
 
-// Make Program class visible to tests
 public partial class Program { }
