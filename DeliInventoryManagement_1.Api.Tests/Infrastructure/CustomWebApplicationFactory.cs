@@ -2,11 +2,11 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection; // <-- Add this using directive
 
-namespace DeliInventoryManagement_1.Api.Tests
+namespace DeliInventoryManagement_1.Api.Tests.Infrastructure
 {
-    public class CustomWebApplicationFactory : WebApplicationFactory<Program>
+    public class CustomWebApplicationFactory : WebApplicationFactory<ProgramV5>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -25,4 +25,9 @@ namespace DeliInventoryManagement_1.Api.Tests
             });
         }
     }
+}
+
+// Make Program public
+public class ProgramV5
+{
 }

@@ -1,5 +1,5 @@
 ﻿using Microsoft.Azure.Cosmos;
-using DeliInventoryManagement_1.Api.Models;
+using DeliInventoryManagement_1.Api.ModelsV5;
 
 
 namespace DeliInventoryManagement_1.Api.Tests.SeedData;

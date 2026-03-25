@@ -1,18 +1,18 @@
 ﻿using System.Text.Json.Serialization;
 
-namespace DeliInventoryManagement_1.Api.Models;
+namespace DeliInventoryManagement_1.Api.ModelsV5.Line;
 
-public class SaleLine
+public sealed class SaleLineV5
 {
-    [JsonPropertyName("ProductId")]
+    [JsonPropertyName("productId")]
     public string ProductId { get; set; } = string.Empty;
 
-    [JsonPropertyName("ProductName")]
+    [JsonPropertyName("productName")]
     public string ProductName { get; set; } = string.Empty;
 
-    [JsonPropertyName("Quantity")]
+    [JsonPropertyName("quantity")]
     public int Quantity { get; set; }
 
-    [JsonPropertyName("UnitPrice")]
+    [JsonPropertyName("unitPrice")]
     public decimal UnitPrice { get; set; }
 }

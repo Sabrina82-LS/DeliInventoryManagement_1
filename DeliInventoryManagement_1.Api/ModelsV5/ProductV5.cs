@@ -18,7 +18,6 @@ public sealed class ProductV5 : CosmosDocument
     [JsonPropertyName("categoryName")]
     public string CategoryName { get; set; } = string.Empty;
 
-    // ✅ estoque único (simplificado) — depois, se quiser, evolui para Batches/Lots
     [JsonPropertyName("quantity")]
     public int Quantity { get; set; }
 

@@ -1,4 +1,4 @@
-﻿using DeliInventoryManagement_1.Api.Models;
+﻿using DeliInventoryManagement_1.Api.ModelsV5;
 using Microsoft.Azure.Cosmos;
 
 namespace DeliInventoryManagement_1.Api.Tests.SeedData;
@@ -15,10 +15,10 @@ public static class SeedTestData
 
         // 1) Suppliers
         // ✅ ALTERADO: IDs fixos para evitar duplicação a cada seed
-        var suppliers = new List<Supplier>
+        var suppliers = new List<SupplierV5>
         {
-            new Supplier { Id = "s1", Type = "Supplier", Name = "Local Farm Supplier" },
-            new Supplier { Id = "s2", Type = "Supplier", Name = "City Wholesale Supplier" }
+            new SupplierV5 { Id = "s1", Type = "Supplier", Name = "Local Farm Supplier" },
+            new SupplierV5 { Id = "s2", Type = "Supplier", Name = "City Wholesale Supplier" }
         };
 
         foreach (var s in suppliers)
@@ -38,7 +38,7 @@ public static class SeedTestData
             await inventoryContainer.UpsertItemAsync(c, new PartitionKey(c.Type));
 
         // 3) Products (15)
-        var products = new List<Product>
+        var products = new List<ProductV5>
         {
             NewProduct("Ham", "c1", "Meat", 20, 2.50m, 3.80m, 5),
             NewProduct("Salami", "c1", "Meat", 15, 3.00m, 4.50m, 5),
@@ -83,8 +83,8 @@ public static class SeedTestData
         return total;
     }
 
-    private static Product NewProduct(string name, string categoryId, string categoryName, int qty, decimal cost, decimal price, int reorder)
-        => new Product
+    private static ProductV5 NewProduct(string name, string categoryId, string categoryName, int qty, decimal cost, decimal price, int reorder)
+        => new ProductV5
         {
             Id = Guid.NewGuid().ToString(),
             Type = "Product",
@@ -97,4 +97,5 @@ public static class SeedTestData
             ReorderLevel = reorder
         };
 }
+
 

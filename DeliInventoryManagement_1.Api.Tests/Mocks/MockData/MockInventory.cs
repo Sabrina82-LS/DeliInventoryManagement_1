@@ -1,4 +1,4 @@
-﻿using DeliInventoryManagement_1.Api.Models;
+﻿using DeliInventoryManagement_1.Api.ModelsV5;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,27 +9,27 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
 {
     public class InventoryTransaction
     {
-        public string Id { get; set; } = string.Empty;  
+        public string Id { get; set; } = string.Empty;
         public string ProductId { get; set; } = string.Empty;
         public string ProductName { get; set; } = string.Empty;
         public int QuantityChange { get; set; }
         public string TransactionType { get; set; } = string.Empty;
         public DateTime TransactionDate { get; set; }
-        public string Notes { get; set; } = string.Empty;  
+        public string Notes { get; set; } = string.Empty;
     }
 
     public static class MockInventory
     {
-        private static List<Product> _products = new List<Product>();
+        private static List<ProductV5> _products = new List<ProductV5>();
         private static List<InventoryTransaction> _transactions = new List<InventoryTransaction>();
         private static int _nextTransactionId = 1;
 
         static MockInventory()
         {
             // Initialize with sample products
-            _products = new List<Product>
+            _products = new List<ProductV5>
         {
-            new Product
+            new ProductV5
             {
                 Id = "prod-001",
                 Name = "Turkey Sandwich",
@@ -38,7 +38,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
                 Price = 8.99m,
                 ReorderLevel = 5
             },
-            new Product
+            new ProductV5
             {
                 Id = "prod-002",
                 Name = "Caesar Salad",
@@ -131,7 +131,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
                 .ToList();
         }
 
-        public static List<Product> GetProductsNeedingReorder() =>
+        public static List<ProductV5> GetProductsNeedingReorder() =>
             _products.Where(p => p.Quantity <= p.ReorderLevel).ToList();
 
         public static Dictionary<string, object> GetInventoryReport()

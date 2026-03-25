@@ -1,6 +1,8 @@
-﻿using DeliInventoryManagement_1.Api.Dtos.V5;
+﻿using Azure.Core;
+using DeliInventoryManagement_1.Api.Dtos.V5;
 using DeliInventoryManagement_1.Api.Dtos.V5.Events;
 using DeliInventoryManagement_1.Api.ModelsV5;
+using DeliInventoryManagement_1.Api.ModelsV5.Line;
 using Microsoft.Azure.Cosmos;
 
 namespace DeliInventoryManagement_1.Api.Endpoints;
@@ -87,7 +89,7 @@ public static class V5RestocksEndpoints
                     ProductId = l.ProductId,
                     ProductName = l.ProductName,
                     Quantity = l.Quantity,
-                    CostPerUnit = l.CostPerUnit
+                    UnitCost = l.CostPerUnit,
                 }).ToList()
             };
 
@@ -140,7 +142,7 @@ public static class V5RestocksEndpoints
                 SupplierId = restock.SupplierId,
                 SupplierName = restock.SupplierName,
                 Date = restock.Date,
-                TotalCost = restock.TotalCost,
+                TotalCost = restock.Lines.Sum(x => x.Quantity * x.UnitCost),
                 Lines = restock.Lines.Select(l => new RestockCreatedLineEventV5
                 {
                     ProductId = l.ProductId,
@@ -192,7 +194,7 @@ public static class V5RestocksEndpoints
                 restock.Date,
                 restock.SupplierId,
                 restock.SupplierName,
-                restock.TotalCost,
+                restock.Total,
                 lines = restock.Lines.Count,
                 movementId = movement.Id,
                 outboxId = outbox.Id

@@ -1,5 +1,5 @@
 ﻿using Xunit;
-using DeliInventoryManagement_1.Api.Models;
+using DeliInventoryManagement_1.Api.ModelsV5;
 using DeliInventoryManagement_1.Api.Tests.Mocks.MockData;
 
 namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockServices
@@ -28,10 +28,10 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockServices
         {
             // Arrange
             var mock = new MockRabbitMqService();
-            var restock = new Restock { Id = "test-123", Quantity = 10 };
+            var restock = new RestockV5 { Id = "test-123" }; // Removed Quantity property
 
             // Act
-          await mock.PublishRestockCreatedAsync(restock);
+            await mock.PublishRestockCreatedAsync(restock);
 
             // Assert
             Assert.Single(mock.PublishedMessages);

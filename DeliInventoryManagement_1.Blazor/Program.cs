@@ -13,9 +13,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
-// Allows services/components to access HttpContext if needed
 builder.Services.AddHttpContextAccessor();
-
 
 // ======================================================
 // 2) Read API Base URL from configuration
@@ -24,59 +22,43 @@ builder.Services.AddHttpContextAccessor();
 var apiBaseUrl = builder.Configuration["Api:BaseUrl"]?.Trim();
 
 if (string.IsNullOrWhiteSpace(apiBaseUrl))
-    throw new InvalidOperationException("Missing configuration: Api:BaseUrl in appsettings.json");
+    throw new InvalidOperationException("Missing configuration: Api:BaseUrl in appsettings.json.");
 
-// Ensure trailing slash
 if (!apiBaseUrl.EndsWith("/"))
     apiBaseUrl += "/";
 
 var apiUri = new Uri(apiBaseUrl, UriKind.Absolute);
 
-
 // ======================================================
-// 3) Browser Storage (Blazor Server)
+// 3) Browser Storage
 // ======================================================
 builder.Services.AddScoped<ProtectedLocalStorage>();
 
-
 // ======================================================
-// 4) Authentication State + Services
+// 4) Authentication State + Auth Services
 // ======================================================
-
-// In-memory authentication state
 builder.Services.AddScoped<AuthState>();
-
-// Login / Logout / Session restore service
 builder.Services.AddScoped<AuthService>();
 
-
 // ======================================================
-// 5) HttpClient configuration
+// 5) Named HttpClients
 // ======================================================
 
-// ------------------------------------
-// Client WITHOUT auth (login only)
-// ------------------------------------
+// Public client (login / no token)
 builder.Services.AddHttpClient("ApiNoAuth", client =>
 {
     client.BaseAddress = apiUri;
 });
 
-
-// ------------------------------------
-// Default API client
-// Protected services now apply the JWT
-// manually using AuthState
-// ------------------------------------
+// Protected/default client
 builder.Services.AddHttpClient("Api", client =>
 {
     client.BaseAddress = apiUri;
 });
 
-
-// ------------------------------------
-// Typed API services
-// ------------------------------------
+// ======================================================
+// 6) Typed Services
+// ======================================================
 builder.Services.AddHttpClient<IDashboardService, DashboardService>(client =>
 {
     client.BaseAddress = apiUri;
@@ -86,8 +68,6 @@ builder.Services.AddHttpClient<IProductsService, ProductsService>(client =>
 {
     client.BaseAddress = apiUri;
 });
-
-
 
 builder.Services.AddHttpClient<ISalesService, SalesService>(client =>
 {
@@ -109,22 +89,17 @@ builder.Services.AddHttpClient<IReportsService, ReportsService>(client =>
     client.BaseAddress = apiUri;
 });
 
-
-// ------------------------------------------------------
-// Default HttpClient fallback
-// ------------------------------------------------------
+// Fallback HttpClient -> uses named client "Api"
 builder.Services.AddScoped(sp =>
     sp.GetRequiredService<IHttpClientFactory>().CreateClient("Api"));
 
-
 // ======================================================
-// Build application
+// 7) Build application
 // ======================================================
 var app = builder.Build();
 
-
 // ======================================================
-// Middleware Pipeline
+// 8) Middleware Pipeline
 // ======================================================
 if (!app.Environment.IsDevelopment())
 {
@@ -136,9 +111,8 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseAntiforgery();
 
-
 // ======================================================
-// Map Razor Components (Blazor)
+// 9) Map Razor Components
 // ======================================================
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();

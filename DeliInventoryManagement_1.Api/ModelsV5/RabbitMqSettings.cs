@@ -1,4 +1,4 @@
-﻿namespace DeliInventoryManagement_1.Core.Models
+﻿namespace DeliInventoryManagement_1.Api.ModelsV5
 {
     public class RabbitMqSettings
     {

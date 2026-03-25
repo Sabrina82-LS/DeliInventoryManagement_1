@@ -1,14 +1,10 @@
-﻿using DeliInventoryManagement_1.Api.Models;
+﻿using DeliInventoryManagement_1.Api.Configuration;
+using DeliInventoryManagement_1.Api.ModelsV5;
 using DeliInventoryManagement_1.Api.Services;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Options;
 using Moq;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
 
 namespace DeliInventoryManagement_1.Api.Tests.Services
@@ -25,46 +21,57 @@ namespace DeliInventoryManagement_1.Api.Tests.Services
             _mockCache = new Mock<IMemoryCache>();
 
             var mockCosmosClient = new Mock<CosmosClient>();
-            var mockConfig = new Mock<IConfiguration>();
 
-            var mockConfigSection = new Mock<IConfigurationSection>();
-            mockConfigSection.Setup(x => x["DatabaseId"]).Returns("TestDb");
-            mockConfigSection.Setup(x => x["ContainerId"]).Returns("TestContainer");
-            mockConfig.Setup(x => x.GetSection("CosmosDb")).Returns(mockConfigSection.Object);
+            var cosmosOptions = Options.Create(new CosmosOptions
+            {
+                DatabaseId = "TestDb",
+                DefaultStorePk = "STORE#1",
+                Containers = new CosmosContainers
+                {
+                    Products = "Products",
+                    Suppliers = "Suppliers",
+                    ReorderRules = "ReorderRules",
+                    Operations = "Operations",
+                    Users = "Users"
+                }
+            });
 
-            mockCosmosClient.Setup(c => c.GetContainer(It.IsAny<string>(), It.IsAny<string>()))
+            mockCosmosClient
+                .Setup(c => c.GetContainer(It.IsAny<string>(), It.IsAny<string>()))
                 .Returns(_mockContainer.Object);
 
-            _service = new SupplierService(mockCosmosClient.Object, mockConfig.Object, _mockCache.Object);
+            _service = new SupplierService(
+                mockCosmosClient.Object,
+                cosmosOptions,
+                _mockCache.Object);
         }
 
         [Fact]
         public async Task GetByIdAsync_WithValidId_ReturnsSupplier()
         {
-            // Arrange
             var supplierId = "SUP#123";
-            var expectedSupplier = new Supplier
+            var expectedSupplier = new SupplierV5
             {
                 Id = supplierId,
+                Pk = "STORE#1",
+                Type = "Supplier",
                 Name = "Test Supplier",
                 Email = "test@supplier.com",
                 Phone = "123-456-7890"
             };
 
-            var mockResponse = new Mock<ItemResponse<Supplier>>();
+            var mockResponse = new Mock<ItemResponse<SupplierV5>>();
             mockResponse.Setup(r => r.Resource).Returns(expectedSupplier);
 
-            _mockContainer.Setup(c => c.ReadItemAsync<Supplier>(
+            _mockContainer.Setup(c => c.ReadItemAsync<SupplierV5>(
                     supplierId,
                     It.IsAny<PartitionKey>(),
                     It.IsAny<ItemRequestOptions>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(mockResponse.Object);
 
-            // Act
             var result = await _service.GetByIdAsync(supplierId);
 
-            // Assert
             Assert.NotNull(result);
             Assert.Equal(supplierId, result.Id);
             Assert.Equal("Test Supplier", result.Name);
@@ -73,38 +80,35 @@ namespace DeliInventoryManagement_1.Api.Tests.Services
         [Fact]
         public async Task CreateAsync_CreatesSupplierSuccessfully()
         {
-            // Arrange
-            var newSupplier = new Supplier
+            var newSupplier = new SupplierV5
             {
+                Pk = "STORE#1",
+                Type = "Supplier",
                 Name = "New Supplier",
                 Email = "new@supplier.com",
                 Phone = "555-1234"
             };
 
-            var mockResponse = new Mock<ItemResponse<Supplier>>();
-            mockResponse.Setup(r => r.Resource).Returns(() =>
+            var mockResponse = new Mock<ItemResponse<SupplierV5>>();
+            mockResponse.Setup(r => r.Resource).Returns(new SupplierV5
             {
-                var result = new Supplier
-                {
-                    Id = "SUP#new123",
-                    Name = newSupplier.Name,
-                    Email = newSupplier.Email,
-                    Phone = newSupplier.Phone
-                };
-                return result;
+                Id = "SUP#new123",
+                Pk = "STORE#1",
+                Type = "Supplier",
+                Name = newSupplier.Name,
+                Email = newSupplier.Email,
+                Phone = newSupplier.Phone
             });
 
             _mockContainer.Setup(c => c.CreateItemAsync(
-                    It.IsAny<Supplier>(),
+                    It.IsAny<SupplierV5>(),
                     It.IsAny<PartitionKey>(),
                     It.IsAny<ItemRequestOptions>(),
                     It.IsAny<CancellationToken>()))
                 .ReturnsAsync(mockResponse.Object);
 
-            // Act
             var result = await _service.CreateAsync(newSupplier);
 
-            // Assert
             Assert.NotNull(result);
             Assert.Equal("New Supplier", result.Name);
             Assert.Equal("new@supplier.com", result.Email);

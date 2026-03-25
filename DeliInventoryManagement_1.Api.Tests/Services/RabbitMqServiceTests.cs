@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 using DeliInventoryManagement_1.Api.Services;
-using DeliInventoryManagement_1.Api.Models;
+using DeliInventoryManagement_1.Api.ModelsV5;
 using DeliInventoryManagement_1.Api.Tests.Mocks.MockData;
 
 namespace DeliInventoryManagement_1.Api.Tests.Services

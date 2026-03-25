@@ -46,8 +46,8 @@
 
                 <div class="kpi-card">
                     <div class="kpi-label">Suppliers</div>
-                    <div class="kpi-value">—</div>
-                    <div class="kpi-footnote">(coming in V5)</div>
+                    <div class="kpi-value">@supplierCount</div>
+                    <div class="kpi-footnote">Active suppliers</div>
                 </div>
             </section>
 
@@ -113,6 +113,7 @@
     private int totalProducts;
     private int totalStockQty;
     private decimal todaysSales;
+    private int supplierCount;
 
     private List<ProductV5Dto> lowStockProducts = new();
     private bool _loaded;
@@ -170,6 +171,8 @@
             todaysSales = sales
                 .Where(s => s.Date.Date == todayUtc)
                 .Sum(s => s.Total);
+
+            supplierCount = await DashboardService.GetSupplierCountAsync();
         }
         catch (Exception ex)
         {

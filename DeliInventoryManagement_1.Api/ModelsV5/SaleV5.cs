@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using DeliInventoryManagement_1.Api.ModelsV5.Line;
+using System.Text.Json.Serialization;
 
 namespace DeliInventoryManagement_1.Api.ModelsV5;
 
@@ -7,6 +8,7 @@ public sealed class SaleV5 : CosmosDocument
     public SaleV5()
     {
         Type = "Sale";
+        Pk = "STORE#1";
     }
 
     [JsonPropertyName("date")]
@@ -17,19 +19,4 @@ public sealed class SaleV5 : CosmosDocument
 
     [JsonPropertyName("total")]
     public decimal Total { get; set; }
-}
-
-public sealed class SaleLineV5
-{
-    [JsonPropertyName("productId")]
-    public string ProductId { get; set; } = string.Empty;
-
-    [JsonPropertyName("productName")]
-    public string ProductName { get; set; } = string.Empty;
-
-    [JsonPropertyName("quantity")]
-    public int Quantity { get; set; }
-
-    [JsonPropertyName("unitPrice")]
-    public decimal UnitPrice { get; set; }
 }

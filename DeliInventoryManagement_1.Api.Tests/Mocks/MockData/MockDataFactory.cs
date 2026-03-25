@@ -1,5 +1,4 @@
-﻿using DeliInventoryManagement_1.Api.Models;
-using DeliInventoryManagement_1.Api.ModelsV5;
+﻿using DeliInventoryManagement_1.Api.ModelsV5;
 
 namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
 {
@@ -8,7 +7,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
         public static Sale CreateTestSale()
         {
             return new Sale
-            {  
+            {
                 Id = Guid.NewGuid().ToString(),
                 ProductId = "prod-001",
                 ProductName = "Test Product",
@@ -19,22 +18,22 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
             };
         }
 
-        public static Restock CreateTestRestock()
+        public static RestockV5 CreateTestRestock()
         {
-            return new Restock
+            return new RestockV5
             {
                 Id = Guid.NewGuid().ToString(),
                 //ProductId = "prod-001",
                 Type = "Test Product",
-                Quantity = 10,
+                Total = 10,
                 SupplierId = "s1",
                 SupplierName = "Test Supplier"
             };
         }
 
-        public static Product CreateTestProduct()
+        public static ProductV5 CreateTestProduct()
         {
-            return new Product
+            return new ProductV5
             {
                 Id = "prod-001",
                 Name = "Test Product",

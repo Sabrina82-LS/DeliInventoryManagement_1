@@ -1,7 +1,7 @@
 ﻿using Newtonsoft.Json;
 using System.Text.Json.Serialization;
 
-namespace DeliInventoryManagement_1.Api.Models;
+namespace DeliInventoryManagement_1.Api.ModelsV5;
 
 public class Category
 {

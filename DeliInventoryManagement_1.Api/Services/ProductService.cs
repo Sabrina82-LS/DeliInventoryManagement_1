@@ -1,7 +1,10 @@
-﻿using DeliInventoryManagement_1.Api.Dtos;
-using DeliInventoryManagement_1.Api.Models;
+﻿using DeliInventoryManagement_1.Api.Configuration;
+using DeliInventoryManagement_1.Api.Dtos;
+using DeliInventoryManagement_1.Api.ModelsV5;
+using DeliInventoryManagement_1.Api.Services.IService;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 
 namespace DeliInventoryManagement_1.Api.Services;
 
@@ -9,54 +12,62 @@ public class ProductService : IProductService
 {
     private readonly Container _container;
     private readonly IMemoryCache _cache;
-    private const string TypeValue = "Product";
+    private readonly string _storePk;
 
-    public ProductService(CosmosClient cosmosClient, IConfiguration config, IMemoryCache cache)
+    public ProductService(
+        CosmosClient cosmosClient,
+        IOptions<CosmosOptions> options,
+        IMemoryCache cache)
     {
         _cache = cache;
 
-        var cosmosSection = config.GetSection("CosmosDb");
-        var databaseId = cosmosSection["DatabaseId"]!;
-        var containerId = cosmosSection["ContainerId"]!;
-        _container = cosmosClient.GetContainer(databaseId, containerId);
+        var opt = options.Value;
+        _storePk = opt.DefaultStorePk;
+
+        _container = cosmosClient.GetContainer(opt.DatabaseId, opt.Containers.Products);
     }
 
-    private async Task<List<Product>> LoadAllProductsAsync()
+    private async Task<List<ProductV5>> LoadAllProductsAsync()
     {
-        // Simple cache of all products (1 minute)
-        if (_cache.TryGetValue("products_all", out List<Product>? cached) && cached is not null)
+        if (_cache.TryGetValue("products_all_v5", out List<ProductV5>? cached) && cached is not null)
             return cached;
 
-        var query = new QueryDefinition("SELECT * FROM c WHERE c.Type = @type")
-            .WithParameter("@type", TypeValue);
+        var query = new QueryDefinition("SELECT * FROM c WHERE c.pk = @pk")
+            .WithParameter("@pk", _storePk);
 
-        var iterator = _container.GetItemQueryIterator<Product>(query);
-        var results = new List<Product>();
+        var iterator = _container.GetItemQueryIterator<ProductV5>(
+            query,
+            requestOptions: new QueryRequestOptions
+            {
+                PartitionKey = new PartitionKey(_storePk)
+            });
+
+        var results = new List<ProductV5>();
+
         while (iterator.HasMoreResults)
         {
             var response = await iterator.ReadNextAsync();
             results.AddRange(response);
         }
 
-        _cache.Set("products_all", results, TimeSpan.FromMinutes(1));
+        _cache.Set("products_all_v5", results, TimeSpan.FromMinutes(1));
         return results;
     }
 
-    public async Task<PagedResult<Product>> GetProductsAsync(ProductQueryParameters q)
+    public async Task<PagedResult<ProductV5>> GetProductsAsync(ProductQueryParameters q)
     {
         var items = await LoadAllProductsAsync();
 
-        // Searching
         if (!string.IsNullOrWhiteSpace(q.Search))
         {
             var term = q.Search.Trim().ToLowerInvariant();
+
             items = items
                 .Where(p => p.Name.ToLower().Contains(term) ||
                             p.CategoryName.ToLower().Contains(term))
                 .ToList();
         }
 
-        // Filter by category
         if (!string.IsNullOrWhiteSpace(q.CategoryId))
         {
             items = items
@@ -64,24 +75,25 @@ public class ProductService : IProductService
                 .ToList();
         }
 
-        // Sorting
         bool desc = string.Equals(q.SortDir, "desc", StringComparison.OrdinalIgnoreCase);
-        items = (q.SortBy?.ToLower()) switch
+
+        items = (q.SortBy?.ToLowerInvariant()) switch
         {
             "price" => desc ? items.OrderByDescending(p => p.Price).ToList()
                             : items.OrderBy(p => p.Price).ToList(),
+
             "quantity" => desc ? items.OrderByDescending(p => p.Quantity).ToList()
                                : items.OrderBy(p => p.Quantity).ToList(),
+
             _ => desc ? items.OrderByDescending(p => p.Name).ToList()
                       : items.OrderBy(p => p.Name).ToList()
         };
 
-        // Paging
         int total = items.Count;
         int skip = (q.Page - 1) * q.PageSize;
         var pageItems = items.Skip(skip).Take(q.PageSize).ToList();
 
-        return new PagedResult<Product>
+        return new PagedResult<ProductV5>
         {
             Items = pageItems,
             TotalCount = total,
@@ -90,13 +102,13 @@ public class ProductService : IProductService
         };
     }
 
-    public async Task<Product?> GetByIdAsync(string id)
+    public async Task<ProductV5?> GetByIdAsync(string id)
     {
         try
         {
-            var response = await _container.ReadItemAsync<Product>(
+            var response = await _container.ReadItemAsync<ProductV5>(
                 id,
-                new PartitionKey(TypeValue));
+                new PartitionKey(_storePk));
 
             return response.Resource;
         }
@@ -106,25 +118,27 @@ public class ProductService : IProductService
         }
     }
 
-    public async Task<Product> CreateAsync(Product product)
+    public async Task<ProductV5> CreateAsync(ProductV5 product)
     {
-        product.Type = TypeValue;
+        if (string.IsNullOrWhiteSpace(product.Id))
+            product.Id = Guid.NewGuid().ToString("n");
 
-        if (string.IsNullOrEmpty(product.Id))
-        {
-            product.Id = Guid.NewGuid().ToString();
-        }
+        product.Pk = _storePk;
+        product.Type = "Product";
+        product.CreatedAtUtc = DateTime.UtcNow;
+        product.UpdatedAtUtc = DateTime.UtcNow;
 
-        _cache.Remove("products_all");
+        _cache.Remove("products_all_v5");
 
-        var response = await _container.CreateItemAsync(product, new PartitionKey(TypeValue));
+        var response = await _container.CreateItemAsync(product, new PartitionKey(product.Pk));
         return response.Resource;
     }
 
-    public async Task<Product?> UpdateAsync(string id, Product product)
+    public async Task<ProductV5?> UpdateAsync(string id, ProductV5 product)
     {
         var existing = await GetByIdAsync(id);
-        if (existing is null) return null;
+        if (existing is null)
+            return null;
 
         existing.Name = product.Name;
         existing.CategoryId = product.CategoryId;
@@ -132,10 +146,14 @@ public class ProductService : IProductService
         existing.Quantity = product.Quantity;
         existing.Cost = product.Cost;
         existing.Price = product.Price;
+        existing.ReorderLevel = product.ReorderLevel;
+        existing.ReorderQty = product.ReorderQty;
+        existing.IsActive = product.IsActive;
+        existing.UpdatedAtUtc = DateTime.UtcNow;
 
-        _cache.Remove("products_all");
+        _cache.Remove("products_all_v5");
 
-        var response = await _container.ReplaceItemAsync(existing, id, new PartitionKey(TypeValue));
+        var response = await _container.ReplaceItemAsync(existing, id, new PartitionKey(_storePk));
         return response.Resource;
     }
 
@@ -143,8 +161,8 @@ public class ProductService : IProductService
     {
         try
         {
-            await _container.DeleteItemAsync<Product>(id, new PartitionKey(TypeValue));
-            _cache.Remove("products_all");
+            await _container.DeleteItemAsync<ProductV5>(id, new PartitionKey(_storePk));
+            _cache.Remove("products_all_v5");
             return true;
         }
         catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)

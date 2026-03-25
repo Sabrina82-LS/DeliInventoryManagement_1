@@ -1,6 +1,6 @@
-﻿using DeliInventoryManagement_1.Api.Models;
+﻿using DeliInventoryManagement_1.Api.ModelsV5;
 
-namespace DeliInventoryManagement_1.Api.Services;
+namespace DeliInventoryManagement_1.Api.Services.IService;
 
 public interface ICategoryService
 {

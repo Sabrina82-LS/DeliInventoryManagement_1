@@ -1,6 +1,9 @@
-﻿using DeliInventoryManagement_1.Api.Models;
+﻿using DeliInventoryManagement_1.Api.Configuration;
+using DeliInventoryManagement_1.Api.ModelsV5;
+using DeliInventoryManagement_1.Api.Services.IService;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Options;
 
 namespace DeliInventoryManagement_1.Api.Services;
 
@@ -8,28 +11,37 @@ public class SupplierService : ISupplierService
 {
     private readonly Container _container;
     private readonly IMemoryCache _cache;
-    private const string TypeValue = "Supplier";
+    private readonly string _storePk;
 
-    public SupplierService(CosmosClient cosmosClient, IConfiguration config, IMemoryCache cache)
+    public SupplierService(
+        CosmosClient cosmosClient,
+        IOptions<CosmosOptions> options,
+        IMemoryCache cache)
     {
         _cache = cache;
 
-        var cosmosSection = config.GetSection("CosmosDb");
-        var databaseId = cosmosSection["DatabaseId"]!;
-        var containerId = cosmosSection["ContainerId"]!;
-        _container = cosmosClient.GetContainer(databaseId, containerId);
+        var opt = options.Value;
+        _storePk = opt.DefaultStorePk;
+
+        _container = cosmosClient.GetContainer(opt.DatabaseId, opt.Containers.Suppliers);
     }
 
-    private async Task<List<Supplier>> LoadAllSuppliersAsync()
+    private async Task<List<SupplierV5>> LoadAllSuppliersAsync()
     {
-        if (_cache.TryGetValue("suppliers_all", out List<Supplier>? cached) && cached is not null)
+        if (_cache.TryGetValue("suppliers_all_v5", out List<SupplierV5>? cached) && cached is not null)
             return cached;
 
-        var query = new QueryDefinition("SELECT * FROM c WHERE c.Type = @type")
-            .WithParameter("@type", TypeValue);
+        var query = new QueryDefinition("SELECT * FROM c WHERE c.pk = @pk")
+            .WithParameter("@pk", _storePk);
 
-        var iterator = _container.GetItemQueryIterator<Supplier>(query);
-        var results = new List<Supplier>();
+        var iterator = _container.GetItemQueryIterator<SupplierV5>(
+            query,
+            requestOptions: new QueryRequestOptions
+            {
+                PartitionKey = new PartitionKey(_storePk)
+            });
+
+        var results = new List<SupplierV5>();
 
         while (iterator.HasMoreResults)
         {
@@ -37,22 +49,22 @@ public class SupplierService : ISupplierService
             results.AddRange(response);
         }
 
-        _cache.Set("suppliers_all", results, TimeSpan.FromMinutes(5));
+        _cache.Set("suppliers_all_v5", results, TimeSpan.FromMinutes(5));
         return results;
     }
 
-    public async Task<IReadOnlyList<Supplier>> GetAllAsync()
+    public async Task<IReadOnlyList<SupplierV5>> GetAllAsync()
     {
         return await LoadAllSuppliersAsync();
     }
 
-    public async Task<Supplier?> GetByIdAsync(string id)
+    public async Task<SupplierV5?> GetByIdAsync(string id)
     {
         try
         {
-            var response = await _container.ReadItemAsync<Supplier>(
+            var response = await _container.ReadItemAsync<SupplierV5>(
                 id,
-                new PartitionKey(TypeValue));
+                new PartitionKey(_storePk));
 
             return response.Resource;
         }
@@ -62,37 +74,37 @@ public class SupplierService : ISupplierService
         }
     }
 
-    public async Task<Supplier> CreateAsync(Supplier supplier)
+    public async Task<SupplierV5> CreateAsync(SupplierV5 supplier)
     {
-        supplier.Type = TypeValue;
+        if (string.IsNullOrWhiteSpace(supplier.Id))
+            supplier.Id = Guid.NewGuid().ToString("n");
 
-        if (string.IsNullOrEmpty(supplier.Id))
-        {
-            supplier.Id = Guid.NewGuid().ToString();
-        }
+        supplier.Pk = _storePk;
+        supplier.Type = "Supplier";
+        supplier.CreatedAtUtc = DateTime.UtcNow;
+        supplier.UpdatedAtUtc = DateTime.UtcNow;
 
-        _cache.Remove("suppliers_all");
+        _cache.Remove("suppliers_all_v5");
 
-        var response = await _container.CreateItemAsync(supplier, new PartitionKey(TypeValue));
+        var response = await _container.CreateItemAsync(supplier, new PartitionKey(supplier.Pk));
         return response.Resource;
     }
 
-
-    public async Task<Supplier?> UpdateAsync(string id, Supplier supplier)
+    public async Task<SupplierV5?> UpdateAsync(string id, SupplierV5 supplier)
     {
         var existing = await GetByIdAsync(id);
-        if (existing is null) return null;
+        if (existing is null)
+            return null;
 
         existing.Name = supplier.Name;
-        existing.ContactName = supplier.ContactName;
-        existing.Phone = supplier.Phone;
         existing.Email = supplier.Email;
-        existing.Address = supplier.Address;
+        existing.Phone = supplier.Phone;
         existing.Notes = supplier.Notes;
+        existing.UpdatedAtUtc = DateTime.UtcNow;
 
-        _cache.Remove("suppliers_all");
+        _cache.Remove("suppliers_all_v5");
 
-        var response = await _container.ReplaceItemAsync(existing, id, new PartitionKey(TypeValue));
+        var response = await _container.ReplaceItemAsync(existing, id, new PartitionKey(_storePk));
         return response.Resource;
     }
 
@@ -100,8 +112,8 @@ public class SupplierService : ISupplierService
     {
         try
         {
-            await _container.DeleteItemAsync<Supplier>(id, new PartitionKey(TypeValue));
-            _cache.Remove("suppliers_all");
+            await _container.DeleteItemAsync<SupplierV5>(id, new PartitionKey(_storePk));
+            _cache.Remove("suppliers_all_v5");
             return true;
         }
         catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)

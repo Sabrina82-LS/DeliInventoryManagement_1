@@ -5,7 +5,7 @@ using DeliInventoryManagement_1.Blazor.Models.V5;
 using DeliInventoryManagement_1.Blazor.Services.Auth;
 using DeliInventoryManagement_1.Blazor.Services.IService;
 
-namespace DeliInventoryManagement_1.Blazor.Services.Service.cs;
+namespace DeliInventoryManagement_1.Blazor.Services;
 
 public sealed class DashboardService : IDashboardService
 {
@@ -116,8 +116,11 @@ public sealed class DashboardService : IDashboardService
             .ToList();
     }
 
-    public Task<int> GetSupplierCountAsync()
+    public async Task<int> GetSupplierCountAsync()
     {
-        return Task.FromResult(0);
+        var suppliers = await GetAsync<List<SupplierV5Dto>>("/api/v5/suppliers")
+                        ?? new List<SupplierV5Dto>();
+
+        return suppliers.Count;
     }
 }

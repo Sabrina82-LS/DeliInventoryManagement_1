@@ -1,0 +1,13 @@
+.cs
+public static RestockV5 CreateTestRestock()
+{
+    return new RestockV5
+    {
+        Id = Guid.NewGuid().ToString(),
+        //ProductId = "prod-001", // Not present in RestockV5
+        Type = "Test Product",
+        // Quantity = 10, // Removed: RestockV5 does not have a Quantity property
+        SupplierId = "s1",
+        SupplierName = "Test Supplier"
+    };
+}

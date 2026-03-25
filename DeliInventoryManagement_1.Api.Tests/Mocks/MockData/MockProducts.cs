@@ -1,16 +1,16 @@
 ﻿using System.Collections.Generic;
-using DeliInventoryManagement_1.Api.Models;
+using DeliInventoryManagement_1.Api.ModelsV5  ;
 
 
 namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
 {
     public static class MockProducts
     {
-        public static List<Product> GetSampleProducts()
+        public static List<ProductV5> GetSampleProducts()
         {
-            return new List<Product>
+            return new List<ProductV5>
         {
-            new Product
+            new ProductV5
             {
                 Id = "prod-001",
                 Type = "Product",
@@ -23,7 +23,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
                 ReorderLevel = 5,
              
             },
-            new Product
+            new ProductV5
             {
                 Id = "prod-002",
                 Type = "Product",
@@ -36,7 +36,7 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
                 ReorderLevel = 5,
                
             },
-            new Product
+            new ProductV5
             {
                 Id = "prod-003",
                 Type = "Product",
@@ -52,9 +52,9 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
         };
         }
 
-        public static Product GetLowStockProduct()
+        public static ProductV5 GetLowStockProduct()
         {
-            return new Product
+            return new ProductV5
             {
                 Id = "prod-low-001",
                 Type = "Product",
@@ -69,9 +69,9 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
             };
         }
 
-        public static Product GetInactiveProduct()
+        public static ProductV5    GetInactiveProduct()
         {
-            return new Product
+            return new ProductV5
             {
                 Id = "prod-inactive-001",
                 Type = "Product",
@@ -86,9 +86,9 @@ namespace DeliInventoryManagement_1.Api.Tests.Mocks.MockData
             };
         }
 
-        public static Product GetOutOfStockProduct()
+        public static ProductV5 GetOutOfStockProduct()
         {
-            return new Product
+            return new ProductV5
             {
                 Id = "prod-oos-001",
                 Type = "Product",
