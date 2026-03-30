@@ -1,0 +1,232 @@
+﻿@page "/reorder"
+@using DeliInventoryManagement_1.Blazor.Models.V5
+@using DeliInventoryManagement_1.Blazor.Services.Auth
+@using DeliInventoryManagement_1.Blazor.Services.IService
+@inject IReorderService ReorderService
+@inject AuthService AuthService
+@inject AuthState AuthState
+@inject NavigationManager NavManager
+
+<AuthGuard>
+    <div class="reorder-page">
+        <div class="reorder-header">
+            <div>
+                <h1>Reorder List</h1>
+                <p class="reorder-subtitle">
+                    Review low-stock items, adjust order quantities, and create purchase orders.
+                </p>
+            </div>
+
+            <div class="reorder-header-actions">
+                <button class="btn-secondary-action" @onclick="GoToPurchaseOrders">
+                    View Purchase Orders
+                </button>
+
+                <button class="btn-back" @onclick="GoBackToDashboard">
+                    Back to Dashboard
+                </button>
+            </div>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="reorder-panel">
+                <p>Loading reorder list...</p>
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="reorder-panel reorder-panel-danger">
+                <strong>Error:</strong> @errorMessage
+            </div>
+        }
+        else if (items == null || !items.Any())
+        {
+            <div class="reorder-panel">
+                <p>No low-stock items found.</p>
+            </div>
+        }
+        else
+        {
+            <div class="reorder-panel">
+                <div class="table-wrap">
+                    <table class="reorder-table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th>Category</th>
+                                <th>Supplier</th>
+                                <th>Current Qty</th>
+                                <th>Reorder Level</th>
+                                <th>Suggested Qty</th>
+                                <th>Order Qty</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in items)
+                            {
+                                <tr>
+                                    <td>@item.ProductName</td>
+                                    <td>@item.CategoryName</td>
+                                    <td>@item.SupplierName</td>
+                                    <td>@item.CurrentQuantity</td>
+                                    <td>@item.ReorderLevel</td>
+                                    <td>@item.SuggestedQty</td>
+                                    <td>
+                                        <InputNumber @bind-Value="item.OrderQty" class="qty-input" />
+                                    </td>
+                                    <td>
+                                        <button class="btn-remove" @onclick="() => RemoveItem(item.ProductId)">
+                                            Remove
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="reorder-footer">
+                    <div class="reorder-summary">
+                        <strong>@items.Count</strong> item(s) ready for reorder
+                    </div>
+
+                    <button class="btn-confirm"
+                            @onclick="ConfirmReorderAsync"
+                            disabled="@isSubmitting">
+                        @(isSubmitting ? "Creating..." : "Create Purchase Orders")
+                    </button>
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="reorder-panel reorder-panel-success">
+                @successMessage
+            </div>
+        }
+    </div>
+</AuthGuard>
+
+@code {
+    private List<ReorderListItemV5Dto> items = new();
+    private bool isLoading = true;
+    private bool isSubmitting = false;
+    private bool hasLoaded;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || hasLoaded)
+            return;
+
+        hasLoaded = true;
+
+        await AuthService.InitializeFromStorageAsync();
+        await LoadReorderListAsync();
+
+        StateHasChanged();
+    }
+
+    private async Task LoadReorderListAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            successMessage = null;
+
+            if (string.IsNullOrWhiteSpace(AuthState.Token))
+            {
+                errorMessage = "You are not authenticated. Please log in again.";
+                return;
+            }
+
+            items = await ReorderService.GetReorderListAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load reorder list: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void RemoveItem(string productId)
+    {
+        items = items.Where(x => x.ProductId != productId).ToList();
+    }
+
+    private async Task ConfirmReorderAsync()
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+            isSubmitting = true;
+
+            await AuthService.InitializeFromStorageAsync();
+
+            if (string.IsNullOrWhiteSpace(AuthState.Token))
+            {
+                errorMessage = "You are not authenticated. Please log in again.";
+                return;
+            }
+
+            var validItems = items
+                .Where(x => x.OrderQty > 0)
+                .Select(x => new ConfirmReorderItemV5Dto
+                {
+                    ProductId = x.ProductId,
+                    OrderQty = x.OrderQty
+                })
+                .ToList();
+
+            if (!validItems.Any())
+            {
+                errorMessage = "Please keep at least one item with Order Qty greater than zero.";
+                return;
+            }
+
+            var request = new ConfirmReorderRequestV5Dto
+            {
+                Items = validItems
+            };
+
+            var ok = await ReorderService.ConfirmReorderAsync(request);
+
+            if (ok)
+            {
+                successMessage = "Purchase order(s) created successfully.";
+                items.Clear();
+            }
+            else
+            {
+                errorMessage = "Failed to create purchase orders.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Error creating purchase orders: {ex.Message}";
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+
+    private void GoBackToDashboard()
+    {
+        NavManager.NavigateTo("/dashboard");
+    }
+
+    private void GoToPurchaseOrders()
+    {
+        NavManager.NavigateTo("/purchase-orders");
+    }
+}

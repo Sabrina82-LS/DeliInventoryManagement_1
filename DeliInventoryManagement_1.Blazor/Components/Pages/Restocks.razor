@@ -1,10 +1,8 @@
 ﻿@page "/restocks"
 
-
 @using DeliInventoryManagement_1.Blazor.Models.CreateLineRequest
 @using DeliInventoryManagement_1.Blazor.Models.CreateRequest
 @using DeliInventoryManagement_1.Blazor.Models.V5
-@using DeliInventoryManagement_1.Blazor.Services
 @using DeliInventoryManagement_1.Blazor.Services.IService
 
 @inject IRestockService RestockService
@@ -12,376 +10,360 @@
 @inject ISuppliersServiceV5 SuppliersServiceV5
 
 <AuthGuard>
-<div class="restocks-wrap">
-    <h1 class="restocks-title">Restocks</h1>
+    <div class="restocks-wrap">
+        <h1 class="restocks-title">Restocks</h1>
 
-    @if (isLoading)
-    {
-        <section class="panel">
-            <p class="muted">Loading products and suppliers...</p>
-        </section>
-    }
-    else if (!string.IsNullOrEmpty(errorMessage))
-    {
-        <section class="panel panel-danger" role="alert">
-            <strong>Error:</strong> @errorMessage
-        </section>
-    }
-    else
-    {
-        <!-- ============================
-             CARD 1: NEW RESTOCK
-             ============================ -->
-        <section class="panel">
-            <div class="panel-head">
-                <h2 class="panel-title">New Restock</h2>
-                <p class="panel-subtitle">Select supplier, then add product lines.</p>
-            </div>
-
-            <div class="form-grid header-grid">
-                <div class="field">
-                    <label class="form-label">Date</label>
-                    <input type="date" class="form-control" @bind="restockDate" disabled="@isSaving" />
-                </div>
-
-                <div class="field field-wide">
-                    <label class="form-label">Supplier (V5)</label>
-                    <select class="form-select" @bind="selectedSupplierId" disabled="@isSaving">
-                        <option value="">-- Select supplier --</option>
-                        @foreach (var s in suppliers)
-                        {
-                            <option value="@s.Id">@s.Id - @s.Name</option>
-                        }
-                    </select>
-                </div>
-            </div>
-
-            <div class="divider"></div>
-
-            <!-- ============================
-                 ADD LINE
-                 ============================ -->
-            <div class="form-grid line-grid">
-                <div class="field field-wide">
-                    <label class="form-label">Product</label>
-                    <select class="form-select" @bind="selectedProductId" disabled="@isSaving">
-                        <option value="">-- Select product --</option>
-                        @foreach (var p in products)
-                        {
-                            <option value="@p.Id">@p.Id - @p.Name (@p.CategoryName)</option>
-                        }
-                    </select>
-                </div>
-
-                <div class="field">
-                    <label class="form-label">Quantity</label>
-                    <input type="number" min="1" class="form-control" @bind="lineQuantity" disabled="@isSaving" />
-                </div>
-
-                <div class="field">
-                    <label class="form-label">Cost / unit</label>
-                    <input type="number" step="0.01" min="0" class="form-control" @bind="lineUnitCost" disabled="@isSaving" />
-                </div>
-
-                <div class="field actions-cell">
-                    <button class="btn btn-primary restocks-primary"
-                            @onclick="AddLine"
-                            disabled="@isSaving">
-                        Add line
-                    </button>
-                </div>
-            </div>
-
-            @if (!string.IsNullOrEmpty(lineError))
-            {
-                <div class="panel panel-warn mt-3" role="alert">
-                    @lineError
-                </div>
-            }
-        </section>
-
-        <!-- ============================
-             CARD 2: RESTOCK LINES
-             ============================ -->
-        <section class="panel mt-3">
-            <div class="panel-head">
-                <h2 class="panel-title">Restock Lines</h2>
-                <p class="panel-subtitle">Review and remove lines before saving.</p>
-            </div>
-
-            @if (lines.Count == 0)
-            {
-                <div class="empty-state">
-                    No lines added yet.
-                </div>
-            }
-            else
-            {
-                <div class="lines-box">
-                    <table class="table table-sm align-middle mb-0">
-                        <thead>
-                            <tr>
-                                <th>Product</th>
-                                <th class="text-end">Qty</th>
-                                <th class="text-end">Unit Cost</th>
-                                <th class="text-end">Line Total</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var l in lines)
-                            {
-                                <tr>
-                                    <td>@l.ProductId - @l.ProductName</td>
-                                    <td class="text-end">@l.Quantity</td>
-                                    <td class="text-end">@l.UnitCost.ToString("0.00")</td>
-                                    <td class="text-end">@l.Total.ToString("0.00")</td>
-                                    <td class="text-end">
-                                        <button class="btn btn-link btn-sm"
-                                                @onclick="() => RemoveLine(l)"
-                                                disabled="@isSaving">
-                                            Remove
-                                        </button>
-                                    </td>
-                                </tr>
-                            }
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="total-row">
-                    <span>Total cost:</span>
-                    <span class="total-value">@totalCost.ToString("0.00")</span>
-                </div>
-            }
-
-            <div class="save-row">
-                <button class="btn btn-success"
-                        @onclick="SaveRestockAsync"
-                        disabled="@(!CanSave || isSaving)">
-                    @(isSaving ? "Saving..." : "Save Restock")
-                </button>
-            </div>
-        </section>
-
-        @if (!string.IsNullOrEmpty(successMessage))
+        @if (isLoading)
         {
-            <section class="panel panel-success mt-3" role="status">
-                @successMessage
+            <section class="panel">
+                <p class="muted">Loading products and suppliers...</p>
             </section>
         }
-
-        @if (!string.IsNullOrEmpty(saveError))
+        else if (!string.IsNullOrEmpty(errorMessage))
         {
-            <section class="panel panel-danger mt-3" role="alert">
-                @saveError
+            <section class="panel panel-danger" role="alert">
+                <strong>Error:</strong> @errorMessage
             </section>
-        }
-    }
-</div>
-
-@code {
-    // ============================
-    // STATE
-    // ============================
-    private bool isLoading;
-    private bool isSaving;
-
-    private string? errorMessage;   // erro ao carregar dados
-    private string? lineError;      // erro ao adicionar linha
-    private string? successMessage; // sucesso ao salvar
-    private string? saveError;      // erro ao salvar
-
-    private List<ProductV5Dto> products = new();
-
-    // ✅ Agora Suppliers vem do V5
-    private List<SupplierV5Dto> suppliers = new();
-
-    // Header (Restock)
-    private DateTime restockDate = DateTime.Today;
-    private string selectedSupplierId = "";
-
-    // New line inputs
-    private string selectedProductId = "";
-    private int lineQuantity = 1;
-    private decimal lineUnitCost = 0m;
-
-    // Lines VM
-    private List<RestockLineVm> lines = new();
-
-    private decimal totalCost => lines.Sum(l => l.Total);
-
-    private bool CanSave =>
-        !string.IsNullOrWhiteSpace(selectedSupplierId) &&
-        lines.Count > 0;
-
-    // ============================
-    // VIEWMODEL
-    // ============================
-    private sealed class RestockLineVm
-    {
-        public string ProductId { get; set; } = string.Empty;
-        public string ProductName { get; set; } = string.Empty;
-        public int Quantity { get; set; }
-        public decimal UnitCost { get; set; }
-        public decimal Total => Quantity * UnitCost;
-    }
-
-    // ============================
-    // INIT
-    // ============================
-    protected override async Task OnInitializedAsync()
-    {
-        try
-        {
-            isLoading = true;
-            errorMessage = null;
-
-            // Produtos continuam do Dashboard (ok)
-            products = await DashboardService.GetAllProductsAsync(null, null);
-
-            // ✅ Suppliers agora vêm do V5
-            suppliers = await SuppliersServiceV5.GetAllAsync();
-        }
-        catch (Exception ex)
-        {
-            errorMessage = $"Error loading data: {ex.Message}";
-        }
-        finally
-        {
-            isLoading = false;
-        }
-    }
-
-    // ============================
-    // ADD / REMOVE LINE
-    // ============================
-    private void AddLine()
-    {
-        lineError = null;
-        successMessage = null;
-        saveError = null;
-
-        if (string.IsNullOrWhiteSpace(selectedSupplierId))
-        {
-            lineError = "Select a supplier first.";
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(selectedProductId))
-        {
-            lineError = "Select a product.";
-            return;
-        }
-
-        if (lineQuantity <= 0)
-        {
-            lineError = "Quantity must be > 0.";
-            return;
-        }
-
-        if (lineUnitCost <= 0)
-        {
-            lineError = "Cost / unit must be > 0.";
-            return;
-        }
-
-        var product = products.FirstOrDefault(p => p.Id == selectedProductId);
-        if (product is null)
-        {
-            lineError = "Selected product not found.";
-            return;
-        }
-
-        // ✅ Se já existe a mesma linha, soma quantidade (evita duplicar produto)
-        var existing = lines.FirstOrDefault(l => l.ProductId == product.Id);
-        if (existing is not null)
-        {
-            existing.Quantity += lineQuantity;
-            existing.UnitCost = lineUnitCost; // mantém último custo informado (simples)
         }
         else
         {
-            lines.Add(new RestockLineVm
+            <div class="restocks-grid">
+                <!-- LEFT: New Restock -->
+                <section class="panel">
+                    <div class="panel-head">
+                        <h2 class="panel-title">New Restock</h2>
+                        <p class="panel-subtitle">Select supplier, add products, and review the restock details.</p>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="field">
+                            <label class="form-label">Date</label>
+                            <input type="date"
+                                   class="form-control"
+                                   @bind="restockDate"
+                                   disabled="@isSaving" />
+                        </div>
+
+                        <div class="field field-wide">
+                            <label class="form-label">Supplier</label>
+                            <select class="form-select"
+                                    @bind="selectedSupplierId"
+                                    disabled="@isSaving">
+                                <option value="">-- Select supplier --</option>
+                                @foreach (var s in suppliers)
+                                {
+                                    <option value="@s.Id">@s.Id - @s.Name</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="field field-wide">
+                            <label class="form-label">Product</label>
+                            <select class="form-select"
+                                    @bind="selectedProductId"
+                                    disabled="@isSaving">
+                                <option value="">-- Select product --</option>
+                                @foreach (var p in products)
+                                {
+                                    <option value="@p.Id">@p.Id - @p.Name (@p.CategoryName)</option>
+                                }
+                            </select>
+                        </div>
+
+                        <div class="field">
+                            <label class="form-label">Quantity</label>
+                            <input type="number"
+                                   min="1"
+                                   class="form-control"
+                                   @bind="lineQuantity"
+                                   disabled="@isSaving" />
+                        </div>
+
+                        <div class="field">
+                            <label class="form-label">Cost / Unit</label>
+                            <input type="number"
+                                   step="0.01"
+                                   min="0"
+                                   class="form-control"
+                                   @bind="lineUnitCost"
+                                   disabled="@isSaving" />
+                        </div>
+                    </div>
+
+                    <div class="actions-row">
+                        <button class="btn btn-primary restocks-primary"
+                                @onclick="AddLine"
+                                disabled="@isSaving">
+                            Add line
+                        </button>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(lineError))
+                    {
+                        <div class="inline-warn" role="alert">
+                            @lineError
+                        </div>
+                    }
+                </section>
+
+                <!-- RIGHT: Restock Lines -->
+                <section class="panel">
+                    <div class="panel-head">
+                        <h2 class="panel-title">Restock Lines</h2>
+                        <p class="panel-subtitle">Review and remove lines before saving.</p>
+                    </div>
+
+                    @if (lines.Count == 0)
+                    {
+                        <div class="empty-state">
+                            No lines added yet.
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="lines-box">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th class="text-end">Qty</th>
+                                        <th class="text-end">Unit Cost</th>
+                                        <th class="text-end">Line Total</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var l in lines)
+                                    {
+                                        <tr>
+                                            <td>@l.ProductId - @l.ProductName</td>
+                                            <td class="text-end">@l.Quantity</td>
+                                            <td class="text-end">@l.UnitCost.ToString("0.00")</td>
+                                            <td class="text-end">@l.Total.ToString("0.00")</td>
+                                            <td class="text-end">
+                                                <button class="btn btn-link btn-sm"
+                                                        @onclick="() => RemoveLine(l)"
+                                                        disabled="@isSaving">
+                                                    Remove
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="total-row">
+                            <span>Total cost:</span>
+                            <span class="total-value">@totalCost.ToString("0.00")</span>
+                        </div>
+                    }
+
+                    <div class="save-row">
+                        <button class="btn btn-success"
+                                @onclick="SaveRestockAsync"
+                                disabled="@(!CanSave || isSaving)">
+                            @(isSaving ? "Saving..." : "Save Restock")
+                        </button>
+                    </div>
+                </section>
+            </div>
+
+            @if (!string.IsNullOrEmpty(successMessage))
             {
-                ProductId = product.Id,
-                ProductName = product.Name,
-                Quantity = lineQuantity,
-                UnitCost = lineUnitCost
-            });
-        }
+                <section class="panel panel-success mt-3" role="status">
+                    @successMessage
+                </section>
+            }
 
-        // Reset inputs
-        selectedProductId = "";
-        lineQuantity = 1;
-        lineUnitCost = 0m;
-    }
-
-    private void RemoveLine(RestockLineVm line)
-    {
-        lines.Remove(line);
-    }
-
-    // ============================
-    // SAVE (CALL API)
-    // ============================
-    private async Task SaveRestockAsync()
-    {
-        lineError = null;
-        successMessage = null;
-        saveError = null;
-
-        if (!CanSave)
-        {
-            saveError = "Please select a supplier and add at least one line.";
-            return;
-        }
-
-        var supplier = suppliers.FirstOrDefault(s => s.Id == selectedSupplierId);
-        if (supplier is null)
-        {
-            saveError = "Selected supplier not found.";
-            return;
-        }
-
-        var request = new CreateRestockRequest
-        {
-            Date = restockDate,
-            SupplierId = supplier.Id,
-            SupplierName = supplier.Name,
-            Lines = lines.Select(l => new CreateRestockLineRequest
+            @if (!string.IsNullOrEmpty(saveError))
             {
-                ProductId = l.ProductId,
-                ProductName = l.ProductName,
-                Quantity = l.Quantity,
-                CostPerUnit = l.UnitCost
-            }).ToList()
-        };
+                <section class="panel panel-danger mt-3" role="alert">
+                    @saveError
+                </section>
+            }
+        }
+    </div>
 
-        try
+    @code {
+        private bool isLoading;
+        private bool isSaving;
+
+        private string? errorMessage;
+        private string? lineError;
+        private string? successMessage;
+        private string? saveError;
+
+        private List<ProductV5Dto> products = new();
+        private List<SupplierV5Dto> suppliers = new();
+
+        private DateTime restockDate = DateTime.Today;
+        private string selectedSupplierId = "";
+        private string selectedProductId = "";
+        private int lineQuantity = 1;
+        private decimal lineUnitCost = 0m;
+
+        private List<RestockLineVm> lines = new();
+
+        private decimal totalCost => lines.Sum(l => l.Total);
+
+        private bool CanSave =>
+        !string.IsNullOrWhiteSpace(selectedSupplierId) &&
+        lines.Count > 0;
+
+        private sealed class RestockLineVm
         {
-            isSaving = true;
+            public string ProductId { get; set; } = string.Empty;
+            public string ProductName { get; set; } = string.Empty;
+            public int Quantity { get; set; }
+            public decimal UnitCost { get; set; }
+            public decimal Total => Quantity * UnitCost;
+        }
 
-            await RestockService.CreateAsync(request);
+        protected override async Task OnInitializedAsync()
+        {
+            try
+            {
+                isLoading = true;
+                errorMessage = null;
 
-            successMessage = $"Restock saved ✔️ {lines.Count} line(s) - Total {totalCost:0.00}. Stock updated in Cosmos.";
+                products = await DashboardService.GetAllProductsAsync();
+                suppliers = await SuppliersServiceV5.GetAllAsync();
+            }
+            catch (Exception ex)
+            {
+                errorMessage = $"Error loading data: {ex.Message}";
+            }
+            finally
+            {
+                isLoading = false;
+            }
+        }
 
-            // Reset form
-            restockDate = DateTime.Today;
-            selectedSupplierId = "";
+        private void AddLine()
+        {
+            lineError = null;
+            successMessage = null;
+            saveError = null;
+
+            if (string.IsNullOrWhiteSpace(selectedSupplierId))
+            {
+                lineError = "Select a supplier first.";
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(selectedProductId))
+            {
+                lineError = "Select a product.";
+                return;
+            }
+
+            if (lineQuantity <= 0)
+            {
+                lineError = "Quantity must be greater than 0.";
+                return;
+            }
+
+            if (lineUnitCost <= 0)
+            {
+                lineError = "Cost / Unit must be greater than 0.";
+                return;
+            }
+
+            var product = products.FirstOrDefault(p => p.Id == selectedProductId);
+            if (product is null)
+            {
+                lineError = "Selected product not found.";
+                return;
+            }
+
+            var existing = lines.FirstOrDefault(l => l.ProductId == product.Id);
+            if (existing is not null)
+            {
+                existing.Quantity += lineQuantity;
+                existing.UnitCost = lineUnitCost;
+            }
+            else
+            {
+                lines.Add(new RestockLineVm
+                {
+                    ProductId = product.Id,
+                    ProductName = product.Name,
+                    Quantity = lineQuantity,
+                    UnitCost = lineUnitCost
+                });
+            }
+
             selectedProductId = "";
             lineQuantity = 1;
             lineUnitCost = 0m;
-            lines.Clear();
         }
-        catch (Exception ex)
+
+        private void RemoveLine(RestockLineVm line)
         {
-            saveError = $"Error saving restock: {ex.Message}";
+            lineError = null;
+            successMessage = null;
+            saveError = null;
+
+            lines.Remove(line);
         }
-        finally
+
+        private async Task SaveRestockAsync()
         {
-            isSaving = false;
+            lineError = null;
+            successMessage = null;
+            saveError = null;
+
+            if (!CanSave)
+            {
+                saveError = "Please select a supplier and add at least one line.";
+                return;
+            }
+
+            var supplier = suppliers.FirstOrDefault(s => s.Id == selectedSupplierId);
+            if (supplier is null)
+            {
+                saveError = "Selected supplier not found.";
+                return;
+            }
+
+            var request = new CreateRestockRequest
+            {
+                Date = restockDate,
+                SupplierId = supplier.Id,
+                SupplierName = supplier.Name,
+                Lines = lines.Select(l => new CreateRestockLineRequest
+                {
+                    ProductId = l.ProductId,
+                    ProductName = l.ProductName,
+                    Quantity = l.Quantity,
+                    CostPerUnit = l.UnitCost
+                }).ToList()
+            };
+
+            try
+            {
+                isSaving = true;
+
+                await RestockService.CreateAsync(request);
+
+                successMessage = $"Restock saved successfully. {lines.Count} line(s) added - Total {totalCost:0.00}. Stock updated in Cosmos.";
+
+                restockDate = DateTime.Today;
+                selectedSupplierId = "";
+                selectedProductId = "";
+                lineQuantity = 1;
+                lineUnitCost = 0m;
+                lines.Clear();
+            }
+            catch (Exception ex)
+            {
+                saveError = $"Error saving restock: {ex.Message}";
+            }
+            finally
+            {
+                isSaving = false;
+            }
         }
     }
-}
 </AuthGuard>

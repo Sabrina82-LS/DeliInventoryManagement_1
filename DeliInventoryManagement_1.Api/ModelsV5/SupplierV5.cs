@@ -21,4 +21,7 @@ public sealed class SupplierV5 : CosmosDocument
 
     [JsonPropertyName("notes")]
     public string? Notes { get; set; }
+
+    [JsonPropertyName("isActive")]
+    public bool IsActive { get; set; } = true;
 }
