@@ -13,7 +13,7 @@ public static class V5OutboxEndpoints
     {
         var group = app.MapGroup("/api/v5/outbox")
             .WithTags("Outbox V5")
-            .RequireAuthorization("AdminOrStaff");
+            .RequireAuthorization();
 
         // ✅ GET /api/v5/outbox/pending
         group.MapGet("/pending", async (

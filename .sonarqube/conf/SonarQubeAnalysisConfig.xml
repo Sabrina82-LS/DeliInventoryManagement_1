@@ -19,7 +19,7 @@
     <ConfigSetting Id="VsCoverageConverterToolPath" />
     <ConfigSetting Id="UnchangedFilesPath" />
     <ConfigSetting Id="sonar.pullrequest.cache.basepath" Value="C:\Users\Yamit\source\repos\DeliInventoryManagement_1" />
-    <ConfigSetting Id="settings.file.path" Value="C:\Users\Yamit\.dotnet\tools\.store\dotnet-sonarscanner\11.1.0\dotnet-sonarscanner\11.1.0\tools\netcoreapp3.1\any\SonarQube.Analysis.xml" />
+    <ConfigSetting Id="settings.file.path" Value="C:\Users\Yamit\.dotnet\tools\.store\dotnet-sonarscanner\11.2.0\dotnet-sonarscanner\11.2.0\tools\netcoreapp3.1\any\SonarQube.Analysis.xml" />
   </AdditionalConfig>
   <ServerSettings>
     <Property Name="sonar.cs.ignoreHeaderComments">true</Property>
@@ -148,8 +148,8 @@
     <Property Name="sonaranalyzer-vbnet.pluginKey">vbnet</Property>
     <Property Name="sonar.java.jvmframeworkconfig.activate">true</Property>
     <Property Name="sonar.updatecenter.url">https://downloads.sonarsource.com/sonarqube/update/update-center.properties</Property>
-    <Property Name="sonar.core.startTime">03/03/2026 21:36:32</Property>
     <Property Name="sonar.core.id">147B411E-AZy1obyuMiAQPNcccVeg</Property>
+    <Property Name="sonar.core.startTime">26/03/2026 09:01:06</Property>
   </ServerSettings>
   <LocalSettings>
     <Property Name="sonar.host.url">http://localhost:9000</Property>
