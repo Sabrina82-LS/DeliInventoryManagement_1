@@ -7,6 +7,7 @@ public sealed class ProductV5 : CosmosDocument
     public ProductV5()
     {
         Type = "Product";
+        Pk = "STORE#1";
     }
 
     [JsonPropertyName("name")]

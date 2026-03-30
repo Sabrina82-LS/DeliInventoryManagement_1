@@ -1,0 +1,200 @@
+﻿@page "/purchase-orders"
+@using System.Globalization
+@using DeliInventoryManagement_1.Blazor.Models.V5
+@using DeliInventoryManagement_1.Blazor.Services.Auth
+@using DeliInventoryManagement_1.Blazor.Services.IService
+
+@inject IPurchaseOrderService PurchaseOrderService
+@inject AuthService AuthService
+@inject AuthState AuthState
+@inject NavigationManager NavManager
+
+<AuthGuard>
+    <div class="purchase-orders-page">
+        <div class="purchase-orders-header">
+            <div>
+                <h1>Purchase Orders</h1>
+                <p class="subtitle">
+                    View and manage supplier purchase orders created from reorder requests.
+                </p>
+            </div>
+
+            <button class="btn-back-dashboard" @onclick="GoToDashboard">
+                Back to Dashboard
+            </button>
+        </div>
+
+        @if (isLoading)
+        {
+            <div class="panel">
+                <p>Loading purchase orders...</p>
+            </div>
+        }
+        else if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="panel panel-danger">
+                @errorMessage
+            </div>
+        }
+        else if (!orders.Any())
+        {
+            <div class="panel empty-panel">
+                <p>No purchase orders found.</p>
+            </div>
+        }
+        else
+        {
+            <div class="panel orders-panel">
+                <div class="orders-topbar">
+                    <div>
+                        <h2 class="orders-title">All Orders</h2>
+                        <p class="orders-caption">@orders.Count order(s) found</p>
+                    </div>
+                </div>
+
+                <div class="table-wrap">
+                    <table class="orders-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Supplier</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th class="num">Total</th>
+                                <th class="action-col">Open</th>
+                                <th class="action-col">Complete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var order in orders)
+                            {
+                                <tr>
+                                    <td class="order-id">@order.Id</td>
+                                    <td>@order.SupplierName</td>
+                                    <td>@order.Date.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</td>
+                                    <td>
+                                        <span class="status-badge @(GetStatusClass(order.Status))">
+                                            @order.Status
+                                        </span>
+                                    </td>
+                                    <td class="num">@order.Total.ToString("C", EuroCulture)</td>
+                                    <td class="action-col">
+                                        <button class="btn-view" @onclick="() => OpenOrder(order.Id)">
+                                            Open
+                                        </button>
+                                    </td>
+                                    <td class="action-col">
+                                        <button class="btn-complete"
+                                                disabled="@IsCompleted(order.Status)"
+                                                @onclick="() => MarkAsCompletedAsync(order.Id)">
+                                            @(IsCompleted(order.Status) ? "Completed" : "Complete")
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(successMessage))
+                {
+                    <div class="inline-success">@successMessage</div>
+                }
+            </div>
+        }
+    </div>
+</AuthGuard>
+
+@code {
+    private static readonly CultureInfo EuroCulture = new("en-IE");
+
+    private List<ReorderOrderV5Dto> orders = new();
+    private bool isLoading = true;
+    private bool hasLoaded;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || hasLoaded)
+            return;
+
+        hasLoaded = true;
+
+        await AuthService.InitializeFromStorageAsync();
+        await LoadOrdersAsync();
+
+        StateHasChanged();
+    }
+
+    private async Task LoadOrdersAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            successMessage = null;
+
+            if (string.IsNullOrWhiteSpace(AuthState.Token))
+            {
+                errorMessage = "You are not authenticated. Please log in again.";
+                return;
+            }
+
+            orders = await PurchaseOrderService.GetOrdersAsync();
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load purchase orders: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task MarkAsCompletedAsync(string id)
+    {
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            var ok = await PurchaseOrderService.MarkAsCompletedAsync(id);
+
+            if (ok)
+            {
+                successMessage = "Purchase order marked as completed.";
+                await LoadOrdersAsync();
+            }
+            else
+            {
+                errorMessage = "Failed to update purchase order status.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to complete order: {ex.Message}";
+        }
+    }
+
+    private static bool IsCompleted(string? status)
+    {
+        return string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string GetStatusClass(string? status)
+    {
+        return IsCompleted(status) ? "status-completed" : "status-pending";
+    }
+
+    private void OpenOrder(string id)
+    {
+        NavManager.NavigateTo($"/purchase-orders/{id}");
+    }
+
+    private void GoToDashboard()
+    {
+        NavManager.NavigateTo("/dashboard");
+    }
+}

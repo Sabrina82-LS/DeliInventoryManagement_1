@@ -9,9 +9,6 @@ public static class ProductSeed
         var now = DateTime.UtcNow;
         var products = new List<ProductV5>();
 
-        // =========================================================
-        // Helper
-        // =========================================================
         void AddProducts(
             string categoryId,
             string categoryName,
@@ -28,10 +25,9 @@ public static class ProductSeed
                 var cost = Math.Round(baseCost + (i % 7) * costStep + (i / 7) * 0.10m, 2);
                 var price = Math.Round(cost * (categoryName == "Sandwiches" ? 1.95m : 1.75m), 2);
 
-                // Variação controlada para criar cenário realista de stock e reposição semanal
                 var quantity = baseQuantity + (i % 5) * 4 + (i % 3) * 2;
-                var reorderLevel = reorderLevelBase + (i % 4) * 2;   // ex: 4,6,8,10...
-                var reorderQty = reorderQtyBase + (i % 5) * 3;       // ex: 8,11,14,17...
+                var reorderLevel = reorderLevelBase + (i % 4) * 2;
+                var reorderQty = reorderQtyBase + (i % 5) * 3;
 
                 products.Add(new ProductV5
                 {
@@ -53,13 +49,9 @@ public static class ProductSeed
             }
         }
 
-        // =========================================================
-        // c1 - Sandwiches (20)
-        // =========================================================
         AddProducts(
-            categoryId: "c1",
-            categoryName: "Sandwiches",
-            names: new[]
+            "c1", "Sandwiches",
+            new[]
             {
                 "Ham & Cheese Sandwich",
                 "Chicken Mayo Sandwich",
@@ -82,20 +74,12 @@ public static class ProductSeed
                 "Falafel & Hummus Sandwich",
                 "Smoked Ham & Mustard Sandwich"
             },
-            baseQuantity: 8,
-            baseCost: 2.10m,
-            costStep: 0.18m,
-            reorderLevelBase: 4,
-            reorderQtyBase: 10
+            8, 2.10m, 0.18m, 4, 10
         );
 
-        // =========================================================
-        // c2 - Soft Drinks (18)
-        // =========================================================
         AddProducts(
-            categoryId: "c2",
-            categoryName: "Soft Drinks",
-            names: new[]
+            "c2", "Soft Drinks",
+            new[]
             {
                 "Coca-Cola 330ml",
                 "Diet Coke 330ml",
@@ -116,20 +100,12 @@ public static class ProductSeed
                 "Iced Tea Lemon 500ml",
                 "Ginger Ale 330ml"
             },
-            baseQuantity: 14,
-            baseCost: 0.70m,
-            costStep: 0.08m,
-            reorderLevelBase: 6,
-            reorderQtyBase: 12
+            14, 0.70m, 0.08m, 6, 12
         );
 
-        // =========================================================
-        // c3 - Energy Drinks (10)
-        // =========================================================
         AddProducts(
-            categoryId: "c3",
-            categoryName: "Energy Drinks",
-            names: new[]
+            "c3", "Energy Drinks",
+            new[]
             {
                 "Red Bull Original 250ml",
                 "Red Bull Sugarfree 250ml",
@@ -142,20 +118,12 @@ public static class ProductSeed
                 "Rockstar Tropical 500ml",
                 "Boost Original 250ml"
             },
-            baseQuantity: 12,
-            baseCost: 1.10m,
-            costStep: 0.14m,
-            reorderLevelBase: 5,
-            reorderQtyBase: 10
+            12, 1.10m, 0.14m, 5, 10
         );
 
-        // =========================================================
-        // c4 - Water (6) -> 2 tipos de água em garrafa, em variações
-        // =========================================================
         AddProducts(
-            categoryId: "c4",
-            categoryName: "Water",
-            names: new[]
+            "c4", "Water",
+            new[]
             {
                 "Still Water 500ml",
                 "Still Water 750ml",
@@ -164,20 +132,12 @@ public static class ProductSeed
                 "Sparkling Water 750ml",
                 "Sparkling Water 1L"
             },
-            baseQuantity: 18,
-            baseCost: 0.35m,
-            costStep: 0.06m,
-            reorderLevelBase: 8,
-            reorderQtyBase: 18
+            18, 0.35m, 0.06m, 8, 18
         );
 
-        // =========================================================
-        // c5 - Fruits (12)
-        // =========================================================
         AddProducts(
-            categoryId: "c5",
-            categoryName: "Fruits",
-            names: new[]
+            "c5", "Fruits",
+            new[]
             {
                 "Banana Single",
                 "Banana Twin Pack",
@@ -192,20 +152,12 @@ public static class ProductSeed
                 "Apple Slices Pot",
                 "Melon Fruit Pot"
             },
-            baseQuantity: 10,
-            baseCost: 0.45m,
-            costStep: 0.10m,
-            reorderLevelBase: 5,
-            reorderQtyBase: 10
+            10, 0.45m, 0.10m, 5, 10
         );
 
-        // =========================================================
-        // c6 - Chocolate Bars (16)
-        // =========================================================
         AddProducts(
-            categoryId: "c6",
-            categoryName: "Chocolate Bars",
-            names: new[]
+            "c6", "Chocolate Bars",
+            new[]
             {
                 "Snickers Bar",
                 "Mars Bar",
@@ -224,20 +176,12 @@ public static class ProductSeed
                 "Maltesers Bar",
                 "Reese's Nutrageous Bar"
             },
-            baseQuantity: 16,
-            baseCost: 0.55m,
-            costStep: 0.07m,
-            reorderLevelBase: 6,
-            reorderQtyBase: 14
+            16, 0.55m, 0.07m, 6, 14
         );
 
-        // =========================================================
-        // c7 - Protein Bars (16)
-        // =========================================================
         AddProducts(
-            categoryId: "c7",
-            categoryName: "Protein Bars",
-            names: new[]
+            "c7", "Protein Bars",
+            new[]
             {
                 "Protein Bar Chocolate Brownie",
                 "Protein Bar Cookies & Cream",
@@ -256,20 +200,12 @@ public static class ProductSeed
                 "Protein Bar Fudge Brownie",
                 "Protein Bar Choco Peanut"
             },
-            baseQuantity: 12,
-            baseCost: 0.95m,
-            costStep: 0.11m,
-            reorderLevelBase: 5,
-            reorderQtyBase: 12
+            12, 0.95m, 0.11m, 5, 12
         );
 
-        // =========================================================
-        // c8 - Crisps (20)
-        // =========================================================
         AddProducts(
-            categoryId: "c8",
-            categoryName: "Crisps",
-            names: new[]
+            "c8", "Crisps",
+            new[]
             {
                 "Ready Salted Crisps",
                 "Cheese & Onion Crisps",
@@ -292,20 +228,12 @@ public static class ProductSeed
                 "Walkers Prawn Cocktail",
                 "Walkers Roast Chicken"
             },
-            baseQuantity: 15,
-            baseCost: 0.50m,
-            costStep: 0.08m,
-            reorderLevelBase: 6,
-            reorderQtyBase: 15
+            15, 0.50m, 0.08m, 6, 15
         );
 
-        // =========================================================
-        // c9 - Nuts (16)
-        // =========================================================
         AddProducts(
-            categoryId: "c9",
-            categoryName: "Nuts",
-            names: new[]
+            "c9", "Nuts",
+            new[]
             {
                 "Salted Peanuts Pack",
                 "Dry Roasted Peanuts Pack",
@@ -324,20 +252,12 @@ public static class ProductSeed
                 "Deluxe Mixed Nuts Pack",
                 "Fruit & Nut Snack Pack"
             },
-            baseQuantity: 11,
-            baseCost: 0.80m,
-            costStep: 0.12m,
-            reorderLevelBase: 5,
-            reorderQtyBase: 10
+            11, 0.80m, 0.12m, 5, 10
         );
 
-        // =========================================================
-        // c10 - Juices & Smoothies (16)
-        // =========================================================
         AddProducts(
-            categoryId: "c10",
-            categoryName: "Juices & Smoothies",
-            names: new[]
+            "c10", "Juices & Smoothies",
+            new[]
             {
                 "Orange Juice 250ml",
                 "Apple Juice 250ml",
@@ -356,11 +276,7 @@ public static class ProductSeed
                 "Apple Berry Smoothie 250ml",
                 "Protein Smoothie Chocolate 330ml"
             },
-            baseQuantity: 10,
-            baseCost: 0.85m,
-            costStep: 0.12m,
-            reorderLevelBase: 5,
-            reorderQtyBase: 12
+            10, 0.85m, 0.12m, 5, 12
         );
 
         return products;

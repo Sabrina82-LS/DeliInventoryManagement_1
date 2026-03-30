@@ -42,7 +42,7 @@ public static class V5SuppliersEndpoints
         });
 
         // GET /api/v5/suppliers/{id}
-        group.MapGet("{id}", async (string id, CosmosClient cosmos, IConfiguration cfg) =>
+        group.MapGet("/{id}", async (string id, CosmosClient cosmos, IConfiguration cfg) =>
         {
             var container = GetSuppliersContainer(cosmos, cfg);
             var storePk = GetStorePk(cfg);
@@ -52,6 +52,9 @@ public static class V5SuppliersEndpoints
                 var resp = await container.ReadItemAsync<SupplierV5>(
                     id,
                     new PartitionKey(storePk));
+
+                if (resp.Resource.Type != "Supplier")
+                    return Results.NotFound(new { message = "Supplier not found." });
 
                 return Results.Ok(resp.Resource);
             }
@@ -69,6 +72,7 @@ public static class V5SuppliersEndpoints
 
             var container = GetSuppliersContainer(cosmos, cfg);
             var storePk = GetStorePk(cfg);
+            var now = DateTime.UtcNow;
 
             var supplier = new SupplierV5
             {
@@ -79,8 +83,9 @@ public static class V5SuppliersEndpoints
                 Email = string.IsNullOrWhiteSpace(req.Email) ? null : req.Email.Trim(),
                 Phone = string.IsNullOrWhiteSpace(req.Phone) ? null : req.Phone.Trim(),
                 Notes = string.IsNullOrWhiteSpace(req.Notes) ? null : req.Notes.Trim(),
-                CreatedAtUtc = DateTime.UtcNow,
-                UpdatedAtUtc = DateTime.UtcNow
+                IsActive = true,
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now
             };
 
             await container.CreateItemAsync(supplier, new PartitionKey(supplier.Pk));
@@ -89,7 +94,7 @@ public static class V5SuppliersEndpoints
         });
 
         // PUT /api/v5/suppliers/{id}
-        group.MapPut("{id}", async (string id, UpdateSupplierRequest req, CosmosClient cosmos, IConfiguration cfg) =>
+        group.MapPut("/{id}", async (string id, UpdateSupplierRequest req, CosmosClient cosmos, IConfiguration cfg) =>
         {
             if (string.IsNullOrWhiteSpace(req.Name))
                 return Results.BadRequest(new { message = "Name is required." });
@@ -103,6 +108,9 @@ public static class V5SuppliersEndpoints
             {
                 var read = await container.ReadItemAsync<SupplierV5>(id, new PartitionKey(storePk));
                 existing = read.Resource;
+
+                if (existing.Type != "Supplier")
+                    return Results.NotFound(new { message = "Supplier not found." });
             }
             catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
             {
@@ -121,13 +129,18 @@ public static class V5SuppliersEndpoints
         });
 
         // DELETE /api/v5/suppliers/{id}
-        group.MapDelete("{id}", async (string id, CosmosClient cosmos, IConfiguration cfg) =>
+        group.MapDelete("/{id}", async (string id, CosmosClient cosmos, IConfiguration cfg) =>
         {
             var container = GetSuppliersContainer(cosmos, cfg);
             var storePk = GetStorePk(cfg);
 
             try
             {
+                var read = await container.ReadItemAsync<SupplierV5>(id, new PartitionKey(storePk));
+
+                if (read.Resource.Type != "Supplier")
+                    return Results.NotFound(new { message = "Supplier not found." });
+
                 await container.DeleteItemAsync<SupplierV5>(id, new PartitionKey(storePk));
                 return Results.NoContent();
             }
@@ -140,13 +153,14 @@ public static class V5SuppliersEndpoints
 
     private static Container GetSuppliersContainer(CosmosClient cosmos, IConfiguration cfg)
     {
-        var c = cfg.GetSection("CosmosDb");
-
-        var dbId = c["DatabaseId"] ?? c["DatabaseName"];
-        var containerId = c["SuppliersContainerId"] ?? "Suppliers";
+        var dbId = cfg["CosmosDb:DatabaseId"];
+        var containerId = cfg["CosmosDb:Containers:Suppliers"];
 
         if (string.IsNullOrWhiteSpace(dbId))
-            throw new InvalidOperationException("CosmosDb:DatabaseId (or DatabaseName) is not configured.");
+            throw new InvalidOperationException("CosmosDb:DatabaseId is not configured.");
+
+        if (string.IsNullOrWhiteSpace(containerId))
+            throw new InvalidOperationException("CosmosDb:Containers:Suppliers is not configured.");
 
         return cosmos.GetContainer(dbId, containerId);
     }

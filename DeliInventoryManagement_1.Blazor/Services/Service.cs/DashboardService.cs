@@ -40,36 +40,38 @@ public sealed class DashboardService : IDashboardService
     {
         ApplyBearerToken();
 
-        using var resp = await _http.GetAsync(url);
+        using var response = await _http.GetAsync(url);
 
-        if (resp.StatusCode == HttpStatusCode.NotFound)
+        if (response.StatusCode == HttpStatusCode.NotFound)
             return default;
 
-        resp.EnsureSuccessStatusCode();
+        response.EnsureSuccessStatusCode();
 
-        var json = await resp.Content.ReadAsStringAsync();
+        var json = await response.Content.ReadAsStringAsync();
         return JsonSerializer.Deserialize<T>(json, JsonOpts);
     }
 
     public async Task<List<ProductV5Dto>> GetAllProductsAsync(string? search = null, string? categoryId = null)
     {
-        var products = await GetAsync<List<ProductV5Dto>>("/api/v5/products") ?? new List<ProductV5Dto>();
+        var products = await GetAsync<List<ProductV5Dto>>("/api/v5/products")
+                       ?? new List<ProductV5Dto>();
 
-        IEnumerable<ProductV5Dto> q = products;
+        IEnumerable<ProductV5Dto> query = products;
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var s = search.Trim();
-            q = q.Where(p => (p.Name ?? "").Contains(s, StringComparison.OrdinalIgnoreCase));
+            var searchText = search.Trim();
+            query = query.Where(p => (p.Name ?? string.Empty)
+                .Contains(searchText, StringComparison.OrdinalIgnoreCase));
         }
 
         if (!string.IsNullOrWhiteSpace(categoryId))
         {
-            var c = categoryId.Trim();
-            q = q.Where(p => string.Equals(p.CategoryId, c, StringComparison.OrdinalIgnoreCase));
+            var category = categoryId.Trim();
+            query = query.Where(p => string.Equals(p.CategoryId, category, StringComparison.OrdinalIgnoreCase));
         }
 
-        return q.ToList();
+        return query.ToList();
     }
 
     public async Task<List<CategoryV5Dto>> GetAllCategoriesAsync()
@@ -79,11 +81,11 @@ public sealed class DashboardService : IDashboardService
         return products
             .Where(p => !string.IsNullOrWhiteSpace(p.CategoryId))
             .GroupBy(p => p.CategoryId!, StringComparer.OrdinalIgnoreCase)
-            .Select(g => new CategoryV5Dto
+            .Select(group => new CategoryV5Dto
             {
-                Id = g.Key,
-                Name = g.Select(x => x.CategoryName)
-                        .FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? g.Key
+                Id = group.Key,
+                Name = group.Select(x => x.CategoryName)
+                            .FirstOrDefault(n => !string.IsNullOrWhiteSpace(n)) ?? group.Key
             })
             .OrderBy(c => c.Name)
             .ToList();
@@ -91,7 +93,14 @@ public sealed class DashboardService : IDashboardService
 
     public async Task<List<SaleV5Dto>> GetAllSalesAsync()
     {
-        return await GetAsync<List<SaleV5Dto>>("/api/v5/sales") ?? new List<SaleV5Dto>();
+        return await GetAsync<List<SaleV5Dto>>("/api/v5/sales")
+               ?? new List<SaleV5Dto>();
+    }
+
+    public async Task<List<ReorderRuleV5Dto>> GetAllReorderRulesAsync()
+    {
+        return await GetAsync<List<ReorderRuleV5Dto>>("/api/v5/reorderrules")
+               ?? new List<ReorderRuleV5Dto>();
     }
 
     public async Task<ProductSummaryDto> GetProductSummaryAsync()
@@ -105,15 +114,16 @@ public sealed class DashboardService : IDashboardService
         };
     }
 
-    public async Task<List<ProductV5Dto>> GetLowStockProductsAsync(int top = 5)
+    public async Task<List<ReorderListItemV5Dto>> GetLowStockTop10Async()
     {
-        var products = await GetAllProductsAsync();
+        return await GetAsync<List<ReorderListItemV5Dto>>("/api/v5/reorder/low-stock-top10")
+               ?? new List<ReorderListItemV5Dto>();
+    }
 
-        return products
-            .Where(p => p.Quantity <= p.ReorderLevel)
-            .OrderBy(p => p.Quantity)
-            .Take(top)
-            .ToList();
+    public async Task<List<ReorderListItemV5Dto>> GetPendingLowStockTop10Async()
+    {
+        return await GetAsync<List<ReorderListItemV5Dto>>("/api/v5/reorder/pending-low-stock-top10")
+               ?? new List<ReorderListItemV5Dto>();
     }
 
     public async Task<int> GetSupplierCountAsync()

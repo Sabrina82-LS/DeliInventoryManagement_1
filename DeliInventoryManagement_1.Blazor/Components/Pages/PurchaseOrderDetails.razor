@@ -1,0 +1,220 @@
+﻿@page "/purchase-orders/{Id}"
+@using System.Globalization
+@using DeliInventoryManagement_1.Blazor.Models.V5
+@using DeliInventoryManagement_1.Blazor.Services.IService
+
+@inject IPurchaseOrderService PurchaseOrderService
+@inject IJSRuntime JS
+@inject NavigationManager NavManager
+
+<div class="invoice-page">
+    @if (isLoading)
+    {
+        <div class="invoice-panel">
+            <p>Loading purchase order...</p>
+        </div>
+    }
+    else if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="invoice-panel invoice-danger">
+            @errorMessage
+        </div>
+    }
+    else if (order is null)
+    {
+        <div class="invoice-panel">
+            <p>Purchase order not found.</p>
+        </div>
+    }
+    else
+    {
+        <div class="invoice-actions no-print">
+            <div class="invoice-actions-left">
+                <button class="btn-back" @onclick="GoBack">
+                    Back to Purchase Orders
+                </button>
+            </div>
+
+            <div class="invoice-actions-right">
+                <button class="btn-complete"
+                        disabled="@IsCompleted(order.Status)"
+                        @onclick="MarkAsCompletedAsync">
+                    @(IsCompleted(order.Status) ? "Completed" : "Mark as Completed")
+                </button>
+
+                <button class="btn-print" @onclick="PrintAsync">
+                    Print / Save PDF
+                </button>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(successMessage))
+        {
+            <div class="invoice-panel invoice-success no-print">
+                @successMessage
+            </div>
+        }
+
+        <div class="invoice-card">
+            <div class="invoice-top">
+                <div>
+                    <div class="doc-label">Supplier Purchase Order</div>
+                    <h1>Purchase Order</h1>
+                    <p class="doc-subtitle">Generated from low-stock reorder workflow.</p>
+                </div>
+
+                <div class="invoice-brand">
+                    <h3>DeliInventoryManagement</h3>
+                    <p>Internal supplier order document</p>
+                </div>
+            </div>
+
+            <div class="invoice-summary-grid">
+                <div class="summary-box">
+                    <div class="summary-label">Order ID</div>
+                    <div class="summary-value order-code">@order.Id</div>
+                </div>
+
+                <div class="summary-box">
+                    <div class="summary-label">Order Date</div>
+                    <div class="summary-value">@order.Date.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
+                </div>
+
+                <div class="summary-box">
+                    <div class="summary-label">Status</div>
+                    <div class="summary-value">
+                        <span class="status-badge @(IsCompleted(order.Status) ? "status-completed" : "status-pending")">
+                            @order.Status
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="invoice-section">
+                <h3>Supplier Information</h3>
+                <div class="supplier-card">
+                    <div>
+                        <div class="supplier-label">Supplier Name</div>
+                        <div class="supplier-value">@order.SupplierName</div>
+                    </div>
+                    <div>
+                        <div class="supplier-label">Supplier ID</div>
+                        <div class="supplier-value">@order.SupplierId</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="invoice-section">
+                <h3>Order Lines</h3>
+
+                <div class="table-wrap">
+                    <table class="invoice-table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th class="num">Qty</th>
+                                <th class="num">Unit Cost</th>
+                                <th class="num">Line Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var line in order.Lines)
+                            {
+                                <tr>
+                                    <td>@line.ProductName</td>
+                                    <td class="num">@line.QuantityRequested</td>
+                                    <td class="num">@line.UnitCost.ToString("C", EuroCulture)</td>
+                                    <td class="num">@line.LineTotal.ToString("C", EuroCulture)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="invoice-total-card">
+                <div class="invoice-total-label">Grand Total</div>
+                <div class="invoice-total-value">@order.Total.ToString("C", EuroCulture)</div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private static readonly CultureInfo EuroCulture = new("en-IE");
+
+    [Parameter] public string Id { get; set; } = string.Empty;
+
+    private ReorderOrderV5Dto? order;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrderAsync();
+    }
+
+    private async Task LoadOrderAsync()
+    {
+        try
+        {
+            isLoading = true;
+            errorMessage = null;
+            successMessage = null;
+
+            order = await PurchaseOrderService.GetOrderByIdAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to load purchase order: {ex.Message}";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task MarkAsCompletedAsync()
+    {
+        if (order is null)
+            return;
+
+        try
+        {
+            errorMessage = null;
+            successMessage = null;
+
+            var ok = await PurchaseOrderService.MarkAsCompletedAsync(order.Id);
+
+            if (ok)
+            {
+                successMessage = "Purchase order marked as completed.";
+                await LoadOrderAsync();
+            }
+            else
+            {
+                errorMessage = "Failed to update purchase order status.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"Failed to complete purchase order: {ex.Message}";
+        }
+    }
+
+    private static bool IsCompleted(string? status)
+    {
+        return string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task PrintAsync()
+    {
+        await JS.InvokeVoidAsync("window.print");
+    }
+
+    private void GoBack()
+    {
+        NavManager.NavigateTo("/purchase-orders");
+    }
+}
