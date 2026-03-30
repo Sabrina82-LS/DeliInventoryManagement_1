@@ -1,3 +1,5 @@
+using System.Text;
+using System.Text.Json;
 using DeliInventoryManagement_1.Api.Configuration;
 using DeliInventoryManagement_1.Api.Data;
 using DeliInventoryManagement_1.Api.Data.Seed;
@@ -10,13 +12,10 @@ using DeliInventoryManagement_1.Api.Services.Auth;
 using DeliInventoryManagement_1.Api.Services.IService;
 using DeliInventoryManagement_1.Api.Services.Outbox;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Http.Json;
 using Microsoft.Azure.Cosmos;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using System.Text;
-using System.Text.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,25 +26,25 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();
 
-builder.Services.AddSwaggerGen(c =>
+builder.Services.AddSwaggerGen(options =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
+    options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "DeliInventoryManagement API",
         Version = "v1"
     });
 
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
         Type = SecuritySchemeType.Http,
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Type: Bearer {your JWT token}"
+        Description = "Enter: Bearer {your JWT token}"
     });
 
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
             new OpenApiSecurityScheme
@@ -62,12 +61,12 @@ builder.Services.AddSwaggerGen(c =>
 });
 
 // =====================================================
-// 2) JSON options for Minimal APIs
+// 2) JSON options
 // =====================================================
-builder.Services.ConfigureHttpJsonOptions(o =>
+builder.Services.ConfigureHttpJsonOptions(options =>
 {
-    o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-    o.SerializerOptions.PropertyNameCaseInsensitive = true;
+    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    options.SerializerOptions.PropertyNameCaseInsensitive = true;
 });
 
 // =====================================================
@@ -84,19 +83,23 @@ var allowedOrigins = new[]
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(CorsPolicyName, policy =>
+    {
         policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod());
+              .AllowAnyMethod();
+    });
 });
 
 // =====================================================
-// 4) Authentication (JWT) + Authorization (Roles)
+// 4) Authentication + Authorization
 // =====================================================
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var jwtKey = jwtSection["Key"];
 
 if (string.IsNullOrWhiteSpace(jwtKey))
+{
     throw new InvalidOperationException("Jwt:Key is not configured in appsettings.json.");
+}
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -122,43 +125,43 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddSingleton<JwtTokenService>();
 
 // =====================================================
-// 5) Cosmos DB configuration + CosmosClient + factory
+// 5) Cosmos DB
 // =====================================================
 builder.Services.Configure<CosmosOptions>(builder.Configuration.GetSection("CosmosDb"));
 
 builder.Services.AddSingleton(sp =>
 {
-    var opt = sp.GetRequiredService<IOptions<CosmosOptions>>().Value;
+    var options = sp.GetRequiredService<IOptions<CosmosOptions>>().Value;
 
-    if (string.IsNullOrWhiteSpace(opt.AccountEndpoint) ||
-        string.IsNullOrWhiteSpace(opt.AccountKey))
+    if (string.IsNullOrWhiteSpace(options.AccountEndpoint) ||
+        string.IsNullOrWhiteSpace(options.AccountKey))
     {
         throw new InvalidOperationException(
-            "CosmosDb: AccountEndpoint and AccountKey must be configured in appsettings.json.");
+            "CosmosDb:AccountEndpoint and CosmosDb:AccountKey must be configured.");
     }
 
-    var jsonOptions = new JsonSerializerOptions
+    var serializerOptions = new JsonSerializerOptions
     {
         PropertyNameCaseInsensitive = true
     };
 
     return new CosmosClient(
-        opt.AccountEndpoint,
-        opt.AccountKey,
+        options.AccountEndpoint,
+        options.AccountKey,
         new CosmosClientOptions
         {
-            Serializer = new CosmosStjSerializer(jsonOptions)
+            Serializer = new CosmosStjSerializer(serializerOptions)
         });
 });
 
 builder.Services.AddSingleton<CosmosContainerFactory>();
 
 // =====================================================
-// 6) RabbitMQ configuration + publisher
+// 6) RabbitMQ
 // =====================================================
 builder.Services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("RabbitMQ"));
-builder.Services.AddSingleton<RabbitMqPublisher>();
 
+builder.Services.AddSingleton<RabbitMqPublisher>();
 builder.Services.AddSingleton<IRabbitMqService, RabbitMqService>();
 builder.Services.AddHostedService<RabbitMqHostedService>();
 
@@ -170,20 +173,20 @@ builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 
 // =====================================================
-// 8) Event consumers
+// 8) Consumers
 // =====================================================
 builder.Services.AddHostedService<SaleCreatedConsumer>();
 builder.Services.AddHostedService<RestockCreatedConsumer>();
 
 // =====================================================
-// 9) Outbox dispatcher
+// 9) Outbox
 // =====================================================
 builder.Services.AddHostedService<OutboxDispatcherV5>();
 
 var app = builder.Build();
 
 // =====================================================
-// 10) Startup bootstrap
+// 10) Bootstrap
 // =====================================================
 if (!app.Environment.IsEnvironment("Testing"))
 {
@@ -210,14 +213,15 @@ app.UseAuthorization();
 app.MapControllers();
 
 // =====================================================
-// 12) V5 endpoints
+// 12) API Endpoints
 // =====================================================
 app.MapV5Endpoints();
 app.MapV5Suppliers();
 app.MapV5RestocksEndpoints();
 app.MapV5OutboxEndpoints();
 app.MapReportsV5();
-
+app.MapV5Reorder();
+app.MapV5ReorderRules();
 app.MapAuthV5();
 app.MapUsersV5();
 
@@ -231,27 +235,29 @@ static async Task EnsureCosmosSchemaAsync(WebApplication app)
     using var scope = app.Services.CreateScope();
 
     var cosmos = scope.ServiceProvider.GetRequiredService<CosmosClient>();
-    var opt = scope.ServiceProvider.GetRequiredService<IOptions<CosmosOptions>>().Value;
+    var options = scope.ServiceProvider.GetRequiredService<IOptions<CosmosOptions>>().Value;
 
-    if (string.IsNullOrWhiteSpace(opt.DatabaseId))
-        throw new InvalidOperationException("CosmosDb: DatabaseId is not configured.");
+    if (string.IsNullOrWhiteSpace(options.DatabaseId))
+    {
+        throw new InvalidOperationException("CosmosDb:DatabaseId is not configured.");
+    }
 
-    var db = (await cosmos.CreateDatabaseIfNotExistsAsync(opt.DatabaseId)).Database;
+    var database = (await cosmos.CreateDatabaseIfNotExistsAsync(options.DatabaseId)).Database;
 
-    await db.CreateContainerIfNotExistsAsync(
-        new ContainerProperties(opt.Containers.Products, opt.PartitionKeyPath));
+    await database.CreateContainerIfNotExistsAsync(
+        new ContainerProperties(options.Containers.Products, options.PartitionKeyPath));
 
-    await db.CreateContainerIfNotExistsAsync(
-        new ContainerProperties(opt.Containers.Suppliers, opt.PartitionKeyPath));
+    await database.CreateContainerIfNotExistsAsync(
+        new ContainerProperties(options.Containers.Suppliers, options.PartitionKeyPath));
 
-    await db.CreateContainerIfNotExistsAsync(
-        new ContainerProperties(opt.Containers.ReorderRules, opt.PartitionKeyPath));
+    await database.CreateContainerIfNotExistsAsync(
+        new ContainerProperties(options.Containers.ReorderRules, options.PartitionKeyPath));
 
-    await db.CreateContainerIfNotExistsAsync(
-        new ContainerProperties(opt.Containers.Operations, opt.PartitionKeyPath));
+    await database.CreateContainerIfNotExistsAsync(
+        new ContainerProperties(options.Containers.Operations, options.PartitionKeyPath));
 
-    await db.CreateContainerIfNotExistsAsync(
-        new ContainerProperties(opt.Containers.Users, opt.PartitionKeyPath));
+    await database.CreateContainerIfNotExistsAsync(
+        new ContainerProperties(options.Containers.Users, options.PartitionKeyPath));
 }
 
 static async Task EnsureSeedUsersAsync(WebApplication app)
