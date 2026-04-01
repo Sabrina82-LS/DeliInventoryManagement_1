@@ -25,4 +25,7 @@ public sealed class ReorderRuleV5 : CosmosDocument
 
     [JsonPropertyName("enabled")]
     public bool Enabled { get; set; } = true;
+
+    public new DateTime CreatedAtUtc { get; set; }
+    public new DateTime UpdatedAtUtc { get; set; }
 }
