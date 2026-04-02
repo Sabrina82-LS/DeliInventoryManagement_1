@@ -1,0 +1,265 @@
+﻿@page "/about"
+@using DeliInventoryManagement_1.Blazor.Services.Auth
+@inject AuthState AuthState
+@inject NavigationManager Nav
+
+<div class="about-wrap">
+
+    <div class="about-hero">
+        <div class="about-logo">🥪</div>
+        <h1 class="about-title">Deli Inventory Management</h1>
+        <p class="about-subtitle">A full-stack inventory management system for a deli store</p>
+        <span class="about-version">Version 1.0 · April 2026</span>
+    </div>
+
+    <div class="about-grid">
+
+        <!-- Tech Stack -->
+        <div class="about-card">
+            <h2 class="about-card-title">⚙️ Tech Stack</h2>
+            <ul class="about-list">
+                <li><span class="badge-tech">Backend</span> .NET 8 Minimal API</li>
+                <li><span class="badge-tech">Frontend</span> Blazor Server</li>
+                <li><span class="badge-tech">Database</span> Azure Cosmos DB (NoSQL)</li>
+                <li><span class="badge-tech">Messaging</span> RabbitMQ + Outbox Pattern</li>
+                <li><span class="badge-tech">Auth</span> JWT Bearer Tokens</li>
+                <li><span class="badge-tech">Testing</span> xUnit + Moq + Selenium IDE</li>
+                <li><span class="badge-tech">Quality</span> SonarQube</li>
+                <li><span class="badge-tech">Deploy</span> Azure App Service</li>
+            </ul>
+        </div>
+
+        <!-- Features -->
+        <div class="about-card">
+            <h2 class="about-card-title">✅ Features</h2>
+            <ul class="about-list">
+                <li>✅ Product management (CRUD)</li>
+                <li>✅ Sales recording with stock update</li>
+                <li>✅ Stock level monitoring</li>
+                <li>✅ Supplier management</li>
+                <li>✅ Restock orders</li>
+                <li>✅ Sales & Restock reports</li>
+                <li>✅ JWT Authentication</li>
+                <li>✅ Register + Forgot Password</li>
+                <li>✅ RabbitMQ event publishing</li>
+                <li>✅ Outbox pattern</li>
+            </ul>
+        </div>
+
+        <!-- Architecture -->
+        <div class="about-card about-card-wide">
+            <h2 class="about-card-title">🏗️ Architecture</h2>
+            <div class="arch-diagram">
+                <div class="arch-box arch-blazor">Blazor Server<br /><small>Frontend UI</small></div>
+                <div class="arch-arrow">→</div>
+                <div class="arch-box arch-api">.NET 8 API<br /><small>JWT Auth</small></div>
+                <div class="arch-arrow">→</div>
+                <div class="arch-box arch-cosmos">Azure Cosmos DB<br /><small>NoSQL Database</small></div>
+            </div>
+            <div class="arch-diagram" style="margin-top:12px;">
+                <div class="arch-box arch-api">.NET 8 API<br /><small>Outbox Pattern</small></div>
+                <div class="arch-arrow">→</div>
+                <div class="arch-box arch-rabbit">RabbitMQ<br /><small>Message Broker</small></div>
+            </div>
+        </div>
+
+        <!-- Team -->
+        <div class="about-card">
+            <h2 class="about-card-title">👥 Team</h2>
+            <ul class="about-list">
+                <li>🎓 Dorset College Dublin</li>
+                <li>📚 Higher Diploma in Computing</li>
+                <li>📅 Academic Year 2025/2026</li>
+            </ul>
+        </div>
+
+        <!-- Default Login -->
+        <div class="about-card">
+            <h2 class="about-card-title">🔑 Default Login</h2>
+            <ul class="about-list">
+                <li>
+                    <strong>Admin</strong><br />
+                    <code>admin@deli.com</code><br />
+                    <code>Admin123!</code>
+                </li>
+                <li style="margin-top:10px;">
+                    <strong>Staff</strong><br />
+                    <code>staff@deli.com</code><br />
+                    <code>Staff123!</code>
+                </li>
+            </ul>
+        </div>
+
+    </div>
+
+    @if (!AuthState.IsAuthenticated)
+    {
+        <div class="about-cta">
+            <button class="btn-about-login" @onclick='() => Nav.NavigateTo("/login")'>
+                Sign In to Get Started →
+            </button>
+        </div>
+    }
+
+</div>
+
+<style>
+    .about-wrap {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 2rem 1rem 3rem;
+    }
+
+    .about-hero {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+
+    .about-logo {
+        font-size: 4rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .about-title {
+        font-size: 2.2rem;
+        font-weight: 900;
+        color: #111827;
+        margin: 0 0 0.5rem;
+    }
+
+    .about-subtitle {
+        color: rgba(17,24,39,0.65);
+        font-size: 1.1rem;
+        margin: 0 0 0.5rem;
+    }
+
+    .about-version {
+        display: inline-block;
+        background: #f3f4f6;
+        border-radius: 999px;
+        padding: 4px 14px;
+        font-size: 0.85rem;
+        color: rgba(17,24,39,0.6);
+        font-weight: 700;
+    }
+
+    .about-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+
+    .about-card {
+        background: #f8fafc;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        padding: 1.25rem;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+    }
+
+    .about-card-wide {
+        grid-column: 1 / -1;
+    }
+
+    .about-card-title {
+        font-size: 1.1rem;
+        font-weight: 900;
+        color: #111827;
+        margin: 0 0 1rem;
+    }
+
+    .about-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        color: #374151;
+        font-size: 0.95rem;
+    }
+
+    .badge-tech {
+        display: inline-block;
+        background: #d98b2b;
+        color: white;
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 0.75rem;
+        font-weight: 800;
+        margin-right: 6px;
+    }
+
+    .arch-diagram {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .arch-box {
+        border-radius: 12px;
+        padding: 10px 16px;
+        text-align: center;
+        font-weight: 800;
+        font-size: 0.9rem;
+        min-width: 140px;
+    }
+
+    .arch-box small {
+        display: block;
+        font-weight: 500;
+        font-size: 0.75rem;
+        opacity: 0.8;
+        margin-top: 2px;
+    }
+
+    .arch-blazor { background: #dbeafe; color: #1e40af; }
+    .arch-api    { background: #dcfce7; color: #166534; }
+    .arch-cosmos { background: #fef3c7; color: #92400e; }
+    .arch-rabbit { background: #ffe4e6; color: #9f1239; }
+
+    .arch-arrow {
+        font-size: 1.5rem;
+        color: rgba(17,24,39,0.4);
+        font-weight: 900;
+    }
+
+    code {
+        background: #f3f4f6;
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 0.85rem;
+        color: #d98b2b;
+    }
+
+    .about-cta {
+        text-align: center;
+        margin-top: 2rem;
+    }
+
+    .btn-about-login {
+        background: linear-gradient(135deg, #e28936, #c85a1d);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 14px 32px;
+        font-size: 1rem;
+        font-weight: 800;
+        cursor: pointer;
+        transition: filter 150ms ease;
+    }
+
+    .btn-about-login:hover {
+        filter: brightness(1.05);
+    }
+
+    @@media (max-width: 768px) {
+        .about-grid {
+            grid-template-columns: 1fr;
+        }
+        .about-card-wide {
+            grid-column: 1;
+        }
+    }
+</style>
