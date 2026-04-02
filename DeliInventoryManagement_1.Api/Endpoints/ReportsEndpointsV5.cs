@@ -173,12 +173,11 @@ public static class ReportsEndpointsV5
     // =========================
     private static (string dbId, string containerId, string pkValue, PartitionKey pk) GetCosmosInfo(IConfiguration config, string? pk)
     {
-        var dbId = config["Cosmos:DatabaseId"] ?? "DeliInventoryDb";
-        var containerId = config["Cosmos:OperationsContainerId"] ?? "Operations";
+        var dbId = config["CosmosDb:DatabaseId"] ?? "DeliInventoryDb";
+        var containerId = config["CosmosDb:Containers:Operations"] ?? "Operations";
         var pkValue = string.IsNullOrWhiteSpace(pk) ? "STORE#1" : pk.Trim();
         return (dbId, containerId, pkValue, new PartitionKey(pkValue));
     }
-
     private static QueryDefinition BuildSalesQuery(DateTime? from, DateTime? to)
     {
         // ✅ Sales: date (camelCase)
