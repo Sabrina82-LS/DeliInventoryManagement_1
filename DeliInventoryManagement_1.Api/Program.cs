@@ -28,29 +28,41 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddControllers();
 builder.Services.AddMemoryCache();
 
-builder.Services.AddSwaggerGen(c =>
+builder.Services.AddSwaggerGen(options =>
 {
+
     // Basic API info shown in the Swagger UI header
     c.SwaggerDoc("v1", new OpenApiInfo
+
+    options.SwaggerDoc("v1", new OpenApiInfo
+
     {
         Title = "DeliInventoryManagement API",
         Version = "v1"
     });
 
+
     // Adds the "Authorize" button in Swagger so we can
     // paste our JWT token and test protected endpoints
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+
     {
         Name = "Authorization",
         Type = SecuritySchemeType.Http,
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Type: Bearer {your JWT token}"
+        Description = "Enter: Bearer {your JWT token}"
     });
+
 
     // Makes all endpoints require the Bearer token by default
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+>>>>>>> bf4116fcfa26617b7e85c6d7683e60f2fa5c174a
     {
         {
             new OpenApiSecurityScheme
@@ -70,11 +82,13 @@ builder.Services.AddSwaggerGen(c =>
 // 2) JSON SERIALIZATION OPTIONS
 // Uses camelCase for all JSON responses (e.g. productId)
 // and accepts both camelCase and PascalCase in requests
+// 2) JSON options
+
 // =====================================================
-builder.Services.ConfigureHttpJsonOptions(o =>
+builder.Services.ConfigureHttpJsonOptions(options =>
 {
-    o.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
-    o.SerializerOptions.PropertyNameCaseInsensitive = true;
+    options.SerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
+    options.SerializerOptions.PropertyNameCaseInsensitive = true;
 });
 
 // =====================================================
@@ -95,25 +109,36 @@ var allowedOrigins = builder.Configuration
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(CorsPolicyName, policy =>
+    {
         policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod());
+              .AllowAnyMethod();
+    });
 });
 
 // =====================================================
+
 // 4) AUTHENTICATION AND AUTHORIZATION
 // Uses JWT Bearer tokens. The token is created by
 // JwtTokenService after a successful login.
 // Two roles are supported: Admin and Staff.
 // - AdminOnly: only Admin users can access
 // - AdminOrStaff: both Admin and Staff can access
+// 4) Authentication + Authorization
+
 // =====================================================
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var jwtKey = jwtSection["Key"];
 
 // Fail fast if JWT key is missing — app cannot run securely without it
 if (string.IsNullOrWhiteSpace(jwtKey))
+
     throw new InvalidOperationException("Jwt:Key is not configured.");
+
+{
+    throw new InvalidOperationException("Jwt:Key is not configured in appsettings.json.");
+}
+
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -144,19 +169,24 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddSingleton<JwtTokenService>();
 
 // =====================================================
+<<<<<<< HEAD
 // 5) COSMOS DB
 // Reads connection settings from CosmosDb section.
 // Creates a single shared CosmosClient (singleton)
 // which is the recommended pattern for performance.
 // CosmosContainerFactory provides typed access to
 // each container (Products, Operations, etc.)
+=======
+// 5) Cosmos DB
+
 // =====================================================
 builder.Services.Configure<CosmosOptions>(
     builder.Configuration.GetSection("CosmosDb"));
 
 builder.Services.AddSingleton(sp =>
 {
-    var opt = sp.GetRequiredService<IOptions<CosmosOptions>>().Value;
+    var options = sp.GetRequiredService<IOptions<CosmosOptions>>().Value;
+
 
     // Fail fast if Cosmos connection info is missing
     if (string.IsNullOrWhiteSpace(opt.AccountEndpoint) ||
@@ -168,16 +198,26 @@ builder.Services.AddSingleton(sp =>
 
     // Use System.Text.Json serializer (faster than Newtonsoft)
     var jsonOptions = new JsonSerializerOptions
+
+    if (string.IsNullOrWhiteSpace(options.AccountEndpoint) ||
+        string.IsNullOrWhiteSpace(options.AccountKey))
+    {
+        throw new InvalidOperationException(
+            "CosmosDb:AccountEndpoint and CosmosDb:AccountKey must be configured.");
+    }
+
+    var serializerOptions = new JsonSerializerOptions
+
     {
         PropertyNameCaseInsensitive = true
     };
 
     return new CosmosClient(
-        opt.AccountEndpoint,
-        opt.AccountKey,
+        options.AccountEndpoint,
+        options.AccountKey,
         new CosmosClientOptions
         {
-            Serializer = new CosmosStjSerializer(jsonOptions)
+            Serializer = new CosmosStjSerializer(serializerOptions)
         });
 });
 
@@ -185,6 +225,7 @@ builder.Services.AddSingleton(sp =>
 builder.Services.AddSingleton<CosmosContainerFactory>();
 
 // =====================================================
+
 // 6) RABBITMQ MESSAGING
 // RabbitMQ is used for event-driven messaging between
 // services (e.g. SaleCreated, RestockCreated events).
@@ -202,6 +243,13 @@ builder.Services.Configure<RabbitMqOptions>(
 builder.Services.AddSingleton<RabbitMqPublisher>();
 
 // Service abstraction used by SalesService etc.
+=======
+// 6) RabbitMQ
+// =====================================================
+builder.Services.Configure<RabbitMqOptions>(builder.Configuration.GetSection("RabbitMQ"));
+
+builder.Services.AddSingleton<RabbitMqPublisher>();
+>>>>>>> bf4116fcfa26617b7e85c6d7683e60f2fa5c174a
 builder.Services.AddSingleton<IRabbitMqService, RabbitMqService>();
 
 // Only start RabbitMQ consumers locally in Development
@@ -223,6 +271,7 @@ builder.Services.AddScoped<ISalesService, SalesService>();
 builder.Services.AddScoped<IProductService, ProductService>();
 builder.Services.AddScoped<ISupplierService, SupplierService>();
 
+
 // Build the application
 var app = builder.Build();
 
@@ -232,6 +281,23 @@ var app = builder.Build();
 // they don't exist, and seeds the default Admin and
 // Staff users so we can log in straight away.
 // Skipped in Testing environment to keep tests fast.
+
+// =====================================================
+// 8) Consumers
+// =====================================================
+builder.Services.AddHostedService<SaleCreatedConsumer>();
+builder.Services.AddHostedService<RestockCreatedConsumer>();
+
+// =====================================================
+// 9) Outbox
+// =====================================================
+builder.Services.AddHostedService<OutboxDispatcherV5>();
+
+var app = builder.Build();
+
+// =====================================================
+// 10) Bootstrap
+
 // =====================================================
 if (!app.Environment.IsEnvironment("Testing"))
 {
@@ -270,10 +336,14 @@ app.UseAuthorization();
 app.MapControllers();
 
 // =====================================================
+
 // 10) API ENDPOINTS
 // All minimal API endpoints are registered here.
 // Each MapXxx() method is defined in its own file
 // under the Endpoints folder.
+
+// 12) API Endpoints
+
 // =====================================================
 
 // Products and Sales (V5Endpoints.cs)
@@ -291,7 +361,12 @@ app.MapV5OutboxEndpoints();
 // Sales and Restock reports
 app.MapReportsV5();
 
+
 // Login endpoint
+
+app.MapV5Reorder();
+app.MapV5ReorderRules();
+ 
 app.MapAuthV5();
 
 // User management (Admin only)
@@ -310,6 +385,7 @@ static async Task EnsureCosmosSchemaAsync(WebApplication app)
     using var scope = app.Services.CreateScope();
 
     var cosmos = scope.ServiceProvider.GetRequiredService<CosmosClient>();
+
     var opt = scope.ServiceProvider
         .GetRequiredService<IOptions<CosmosOptions>>().Value;
 
@@ -324,17 +400,29 @@ static async Task EnsureCosmosSchemaAsync(WebApplication app)
     await db.CreateContainerIfNotExistsAsync(
         new ContainerProperties(opt.Containers.Products, opt.PartitionKeyPath));
 
-    await db.CreateContainerIfNotExistsAsync(
-        new ContainerProperties(opt.Containers.Suppliers, opt.PartitionKeyPath));
+    var options = scope.ServiceProvider.GetRequiredService<IOptions<CosmosOptions>>().Value;
 
-    await db.CreateContainerIfNotExistsAsync(
-        new ContainerProperties(opt.Containers.ReorderRules, opt.PartitionKeyPath));
+    if (string.IsNullOrWhiteSpace(options.DatabaseId))
+    {
+        throw new InvalidOperationException("CosmosDb:DatabaseId is not configured.");
+    }
 
-    await db.CreateContainerIfNotExistsAsync(
-        new ContainerProperties(opt.Containers.Operations, opt.PartitionKeyPath));
+    var database = (await cosmos.CreateDatabaseIfNotExistsAsync(options.DatabaseId)).Database;
 
-    await db.CreateContainerIfNotExistsAsync(
-        new ContainerProperties(opt.Containers.Users, opt.PartitionKeyPath));
+    await database.CreateContainerIfNotExistsAsync(
+        new ContainerProperties(options.Containers.Products, options.PartitionKeyPath));
+
+    await database.CreateContainerIfNotExistsAsync(
+        new ContainerProperties(options.Containers.Suppliers, options.PartitionKeyPath));
+
+    await database.CreateContainerIfNotExistsAsync(
+        new ContainerProperties(options.Containers.ReorderRules, options.PartitionKeyPath));
+
+    await database.CreateContainerIfNotExistsAsync(
+        new ContainerProperties(options.Containers.Operations, options.PartitionKeyPath));
+
+    await database.CreateContainerIfNotExistsAsync(
+        new ContainerProperties(options.Containers.Users, options.PartitionKeyPath));
 }
 
 // Seeds the default Admin and Staff users on first run.
