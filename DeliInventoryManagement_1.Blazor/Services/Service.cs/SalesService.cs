@@ -1,9 +1,9 @@
-﻿using System.Net.Http.Headers;
-using System.Net.Http.Json;
-using DeliInventoryManagement_1.Blazor.Models.CreateRequest;
+﻿using DeliInventoryManagement_1.Blazor.Models.CreateRequest;
 using DeliInventoryManagement_1.Blazor.Models.V5;
 using DeliInventoryManagement_1.Blazor.Services.Auth;
 using DeliInventoryManagement_1.Blazor.Services.IService;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 
 namespace DeliInventoryManagement_1.Blazor.Services.Service.cs;
 
@@ -41,6 +41,11 @@ public class SalesService : ISalesService
         if (!resp.IsSuccessStatusCode)
             throw new Exception($"API error {(int)resp.StatusCode}: {body}");
 
-        return (await resp.Content.ReadFromJsonAsync<CreateSaleResponse>())!;
+        var result = await resp.Content.ReadFromJsonAsync<CreateSaleResponse>();
+
+        if (result is null)
+            throw new Exception("API returned an empty response when creating the sale.");
+
+        return result;
     }
 }

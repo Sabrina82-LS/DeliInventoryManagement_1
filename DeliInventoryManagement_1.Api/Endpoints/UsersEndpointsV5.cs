@@ -12,7 +12,7 @@ public static class UsersEndpointsV5
     {
         var group = app.MapGroup("/api/v5/users")
             .WithTags("Users V5")
-            .RequireAuthorization("AdminOnly");// temporário para teste
+            .RequireAuthorization();// temporário para teste
 
         group.MapPost("", async (
             CreateUserRequest req,

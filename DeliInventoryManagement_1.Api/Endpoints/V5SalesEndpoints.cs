@@ -14,7 +14,7 @@ public static class V5SalesEndpoints
     {
         var group = v5.MapGroup("/api/v5/sales")
         .WithTags("Sales V5")
-        .RequireAuthorization("AdminOrStaff");
+        .RequireAuthorization();
 
         // GET /api/v5/sales
         v5.MapGet("/sales", async (CosmosContainerFactory factory) =>
