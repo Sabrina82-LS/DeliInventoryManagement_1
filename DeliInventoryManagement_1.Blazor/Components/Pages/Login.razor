@@ -1,4 +1,4 @@
-﻿@page "/login"
+﻿@* @page "/login"
 @inject NavigationManager Nav
 @inject DeliInventoryManagement_1.Blazor.Services.Auth.AuthService Auth
 
@@ -72,5 +72,319 @@
         {
             isBusy = false;
         }
+    }
+} *@
+
+
+@page "/login"
+@using System.Net.Http.Json
+@using DeliInventoryManagement_1.Blazor.Services.Auth
+@inject NavigationManager Nav
+@inject AuthService Auth
+
+<div class="login-shell">
+    <div class="login-card">
+
+        @* TAB SWITCHER *@
+        <div class="login-tabs mb-3">
+            <button class="login-tab @(activeTab == "login" ? "active" : "")"
+                    @onclick='() => SwitchTab("login")'>
+                Sign In
+            </button>
+            <button class="login-tab @(activeTab == "register" ? "active" : "")"
+                    @onclick='() => SwitchTab("register")'>
+                Create Account
+            </button>
+        </div>
+
+        @if (activeTab == "login")
+        {
+            <h1 class="login-title">Welcome Back</h1>
+            <p class="login-subtitle">Sign in to access DeliInventoryManagement</p>
+
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input class="form-control" type="email" placeholder="your@email.com"
+                       @bind="loginEmail" @bind:event="oninput" />
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-control" placeholder="password"
+                       @bind="loginPassword" @bind:event="oninput" />
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(loginError))
+            {
+                <div class="alert alert-danger">@loginError</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(loginSuccess))
+            {
+                <div class="alert alert-success">@loginSuccess</div>
+            }
+
+            <button class="btn btn-primary w-100" disabled="@isBusy" @onclick="DoLogin">
+                @(isBusy ? "Signing in..." : "Sign in")
+            </button>
+
+            <div class="mt-3 text-center">
+                <button class="btn btn-link login-link" @onclick='() => SwitchTab("forgot")'>
+                    Forgot your password?
+                </button>
+            </div>
+        }
+        else if (activeTab == "register")
+        {
+            <h1 class="login-title">Create Account</h1>
+            <p class="login-subtitle">Register to access DeliInventoryManagement</p>
+
+            <div class="mb-3">
+                <label class="form-label">Full Name</label>
+                <input class="form-control" placeholder="John Smith"
+                       @bind="regFullName" @bind:event="oninput" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Email</label>
+                <input class="form-control" type="email" placeholder="your@email.com"
+                       @bind="regEmail" @bind:event="oninput" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input type="password" class="form-control" placeholder="Min. 6 characters"
+                       @bind="regPassword" @bind:event="oninput" />
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Confirm Password</label>
+                <input type="password" class="form-control" placeholder="Repeat password"
+                       @bind="regConfirmPassword" @bind:event="oninput" />
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(regError))
+            {
+                <div class="alert alert-danger">@regError</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(regSuccess))
+            {
+                <div class="alert alert-success">@regSuccess</div>
+            }
+
+            <button class="btn btn-primary w-100" disabled="@isBusy" @onclick="DoRegister">
+                @(isBusy ? "Creating account..." : "Create Account")
+            </button>
+
+            <div class="mt-3 text-center">
+                <span style="color:rgba(255,255,255,0.80);font-size:0.9rem;">Already have an account? </span>
+                <button class="btn btn-link login-link" @onclick='() => SwitchTab("login")'>Sign in</button>
+            </div>
+        }
+        else if (activeTab == "forgot")
+        {
+            <h1 class="login-title">Reset Password</h1>
+            <p class="login-subtitle">Enter your email to receive a reset token</p>
+
+            @if (!forgotSent)
+            {
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input class="form-control" type="email" placeholder="your@email.com"
+                           @bind="forgotEmail" @bind:event="oninput" />
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(forgotError))
+                {
+                    <div class="alert alert-danger">@forgotError</div>
+                }
+
+                <button class="btn btn-primary w-100" disabled="@isBusy" @onclick="DoForgotPassword">
+                    @(isBusy ? "Sending..." : "Send Reset Token")
+                </button>
+            }
+            else
+            {
+                <div class="alert alert-success">
+                    Token sent! In dev mode check the API Swagger response for the token.
+                    Enter it below to set a new password.
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Reset Token</label>
+                    <input class="form-control" placeholder="Paste your reset token"
+                           @bind="resetToken" @bind:event="oninput" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">New Password</label>
+                    <input type="password" class="form-control" placeholder="Min. 6 characters"
+                           @bind="resetNewPassword" @bind:event="oninput" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Confirm New Password</label>
+                    <input type="password" class="form-control" placeholder="Repeat new password"
+                           @bind="resetConfirmPassword" @bind:event="oninput" />
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(resetError))
+                {
+                    <div class="alert alert-danger">@resetError</div>
+                }
+                @if (!string.IsNullOrWhiteSpace(resetSuccess))
+                {
+                    <div class="alert alert-success">@resetSuccess</div>
+                }
+
+                <button class="btn btn-primary w-100" disabled="@isBusy" @onclick="DoResetPassword">
+                    @(isBusy ? "Resetting..." : "Reset Password")
+                </button>
+            }
+
+            <div class="mt-3 text-center">
+                <button class="btn btn-link login-link" @onclick='() => SwitchTab("login")'>
+                    Back to Sign In
+                </button>
+            </div>
+        }
+
+    </div>
+</div>
+
+@code {
+    private string activeTab = "login";
+
+    private void SwitchTab(string tab)
+    {
+        activeTab = tab;
+        loginError = loginSuccess = regError = regSuccess = forgotError = resetError = resetSuccess = "";
+    }
+
+    private bool isBusy;
+
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
+
+    // LOGIN
+    private string loginEmail = "", loginPassword = "", loginError = "", loginSuccess = "";
+
+    private async Task DoLogin()
+    {
+        loginError = "";
+        if (string.IsNullOrWhiteSpace(loginEmail) || string.IsNullOrWhiteSpace(loginPassword))
+        { loginError = "Please enter email and password."; return; }
+
+        isBusy = true;
+        try
+        {
+            var ok = await Auth.LoginAsync(loginEmail, loginPassword);
+            if (!ok) { loginError = "Invalid email or password."; return; }
+
+            var target = "/dashboard";
+            if (!string.IsNullOrWhiteSpace(ReturnUrl))
+                target = ReturnUrl.StartsWith("/") ? ReturnUrl : "/" + ReturnUrl;
+
+            Nav.NavigateTo(target, true);
+        }
+        finally { isBusy = false; }
+    }
+
+    // REGISTER
+    private string regFullName = "", regEmail = "", regPassword = "", regConfirmPassword = "";
+    private string regError = "", regSuccess = "";
+
+    private async Task DoRegister()
+    {
+        regError = regSuccess = "";
+        if (string.IsNullOrWhiteSpace(regFullName)) { regError = "Full name is required."; return; }
+        if (string.IsNullOrWhiteSpace(regEmail)) { regError = "Email is required."; return; }
+        if (string.IsNullOrWhiteSpace(regPassword) || regPassword.Length < 6) { regError = "Password must be at least 6 characters."; return; }
+        if (regPassword != regConfirmPassword) { regError = "Passwords do not match."; return; }
+
+        isBusy = true;
+        try
+        {
+            var http = Auth.GetPublicClient();
+            var resp = await http.PostAsJsonAsync("/api/v5/auth/register", new
+            {
+                email = regEmail.Trim(),
+                fullName = regFullName.Trim(),
+                password = regPassword,
+                confirmPassword = regConfirmPassword
+            });
+
+            if (resp.IsSuccessStatusCode)
+            {
+                regSuccess = "Account created! Redirecting to sign in...";
+                regEmail = regPassword = regConfirmPassword = regFullName = "";
+                await Task.Delay(1500);
+                SwitchTab("login");
+                loginSuccess = "Account created. Please sign in.";
+            }
+            else
+            {
+                var body = await resp.Content.ReadFromJsonAsync<ApiError>();
+                regError = body?.Message ?? "Registration failed. Please try again.";
+            }
+        }
+        catch (Exception ex) { regError = $"Connection error: {ex.Message}"; }
+        finally { isBusy = false; }
+    }
+
+    // FORGOT PASSWORD
+    private string forgotEmail = "", forgotError = "";
+    private bool forgotSent = false;
+    private string resetToken = "", resetNewPassword = "", resetConfirmPassword = "";
+    private string resetError = "", resetSuccess = "";
+
+    private async Task DoForgotPassword()
+    {
+        forgotError = "";
+        if (string.IsNullOrWhiteSpace(forgotEmail)) { forgotError = "Please enter your email."; return; }
+
+        isBusy = true;
+        try
+        {
+            var http = Auth.GetPublicClient();
+            await http.PostAsJsonAsync("/api/v5/auth/forgot-password", new { email = forgotEmail.Trim() });
+            forgotSent = true;
+        }
+        catch (Exception ex) { forgotError = $"Connection error: {ex.Message}"; }
+        finally { isBusy = false; }
+    }
+
+    private async Task DoResetPassword()
+    {
+        resetError = resetSuccess = "";
+        if (string.IsNullOrWhiteSpace(resetToken)) { resetError = "Please enter the reset token."; return; }
+        if (string.IsNullOrWhiteSpace(resetNewPassword) || resetNewPassword.Length < 6) { resetError = "Password must be at least 6 characters."; return; }
+        if (resetNewPassword != resetConfirmPassword) { resetError = "Passwords do not match."; return; }
+
+        isBusy = true;
+        try
+        {
+            var http = Auth.GetPublicClient();
+            var resp = await http.PostAsJsonAsync("/api/v5/auth/reset-password", new
+            {
+                token = resetToken.Trim(),
+                newPassword = resetNewPassword,
+                confirmPassword = resetConfirmPassword
+            });
+
+            if (resp.IsSuccessStatusCode)
+            {
+                resetSuccess = "Password reset successfully!";
+                await Task.Delay(1500);
+                SwitchTab("login");
+                loginSuccess = "Password updated. Please sign in.";
+            }
+            else
+            {
+                var body = await resp.Content.ReadFromJsonAsync<ApiError>();
+                resetError = body?.Message ?? "Reset failed. Token may be invalid or expired.";
+            }
+        }
+        catch (Exception ex) { resetError = $"Connection error: {ex.Message}"; }
+        finally { isBusy = false; }
+    }
+
+    private sealed class ApiError
+    {
+        public string Message { get; set; } = "";
     }
 }

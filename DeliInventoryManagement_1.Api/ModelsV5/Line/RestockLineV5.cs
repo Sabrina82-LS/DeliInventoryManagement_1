@@ -16,7 +16,6 @@ public sealed class RestockLineV5
     [JsonPropertyName("unitCost")]
     public decimal UnitCost { get; set; }
 
-    // Calculated property (not stored in Cosmos)
     [JsonIgnore]
-    public decimal TotalCost => Quantity * UnitCost;
+    public decimal TotalCost { get; set; }
 }

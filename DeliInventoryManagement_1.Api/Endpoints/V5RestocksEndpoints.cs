@@ -1,5 +1,4 @@
-﻿using Azure.Core;
-using DeliInventoryManagement_1.Api.Dtos.V5;
+﻿using DeliInventoryManagement_1.Api.Dtos.V5;
 using DeliInventoryManagement_1.Api.Dtos.V5.Events;
 using DeliInventoryManagement_1.Api.ModelsV5;
 using DeliInventoryManagement_1.Api.ModelsV5.Line;
@@ -15,88 +14,152 @@ public static class V5RestocksEndpoints
             .WithTags("Restocks V5")
             .RequireAuthorization();
 
-        group.MapPost("", async (
-            CosmosClient cosmos,
-            IConfiguration cfg,
-            CreateRestockRequestV5 req) =>
+        group.MapPost("", CreateRestock);
+    }
+
+    private static async Task<IResult> CreateRestock(
+        CosmosClient cosmos,
+        IConfiguration cfg,
+        CreateRestockRequestV5 req)
+    {
+        try
         {
-            // ============================
-            // 1) Validações
-            // ============================
-            if (string.IsNullOrWhiteSpace(req.SupplierId) || string.IsNullOrWhiteSpace(req.SupplierName))
-                return Results.BadRequest(new { message = "SupplierId and SupplierName are required." });
+            // ======================================
+            // 1) Validations
+            // ======================================
+            if (string.IsNullOrWhiteSpace(req.SupplierId) ||
+                string.IsNullOrWhiteSpace(req.SupplierName))
+            {
+                return Results.BadRequest(new
+                {
+                    message = "SupplierId and SupplierName are required."
+                });
+            }
 
             if (req.Lines is null || req.Lines.Count == 0)
-                return Results.BadRequest(new { message = "At least one line is required." });
+            {
+                return Results.BadRequest(new
+                {
+                    message = "At least one line is required."
+                });
+            }
 
             if (req.Lines.Any(l => string.IsNullOrWhiteSpace(l.ProductId)))
-                return Results.BadRequest(new { message = "Each line must have ProductId." });
+            {
+                return Results.BadRequest(new
+                {
+                    message = "Each line must have ProductId."
+                });
+            }
 
             if (req.Lines.Any(l => l.Quantity <= 0))
-                return Results.BadRequest(new { message = "Line Quantity must be > 0." });
+            {
+                return Results.BadRequest(new
+                {
+                    message = "Line Quantity must be greater than 0."
+                });
+            }
 
             if (req.Lines.Any(l => l.CostPerUnit <= 0))
-                return Results.BadRequest(new { message = "CostPerUnit must be > 0." });
+            {
+                return Results.BadRequest(new
+                {
+                    message = "CostPerUnit must be greater than 0."
+                });
+            }
 
-            // ============================
+            // ======================================
             // 2) Cosmos setup
-            // ============================
-            var c = cfg.GetSection("CosmosDb");
-            var dbId = c["DatabaseId"] ?? c["DatabaseName"];
+            // ======================================
+            var cosmosSection = cfg.GetSection("CosmosDb");
+            var dbId = cosmosSection["DatabaseId"] ?? cosmosSection["DatabaseName"];
 
-            var productsContainerId = c["ProductsContainerId"] ?? "Products";
-            var operationsContainerId = c["OperationsContainerId"] ?? "Operations";
+            if (string.IsNullOrWhiteSpace(dbId))
+            {
+                return Results.Problem(
+                    title: "Configuration error",
+                    detail: "CosmosDb:DatabaseId is not configured.",
+                    statusCode: StatusCodes.Status500InternalServerError);
+            }
 
-            var products = cosmos.GetContainer(dbId!, productsContainerId);
-            var operations = cosmos.GetContainer(dbId!, operationsContainerId);
+            var productsContainerId =
+                cosmosSection["Containers:Products"] ??
+                cosmosSection["ProductsContainerId"] ??
+                "Products";
 
-            const string storePk = "STORE#1";
+            var operationsContainerId =
+                cosmosSection["Containers:Operations"] ??
+                cosmosSection["OperationsContainerId"] ??
+                "Operations";
+
+            var storePk =
+                cosmosSection["DefaultStorePk"] ??
+                "STORE#1";
+
             var pk = new PartitionKey(storePk);
 
-            // ============================
-            // 3) Normalizar linhas (somar qty do mesmo ProductId)
-            // ============================
+            var productsContainer = cosmos.GetContainer(dbId, productsContainerId);
+            var operationsContainer = cosmos.GetContainer(dbId, operationsContainerId);
+
+            // ======================================
+            // 3) Normalize lines
+            // Merge duplicate ProductId lines
+            // ======================================
             var mergedLines = req.Lines
-                .GroupBy(l => l.ProductId.Trim())
+                .GroupBy(l => l.ProductId.Trim(), StringComparer.OrdinalIgnoreCase)
                 .Select(g => new
                 {
                     ProductId = g.Key,
-                    ProductName = g.First().ProductName?.Trim() ?? "",
+                    ProductName = g.Last().ProductName?.Trim() ?? string.Empty,
                     Quantity = g.Sum(x => x.Quantity),
                     CostPerUnit = g.Last().CostPerUnit
                 })
                 .ToList();
 
-            // ============================
-            // 4) Criar Restock (Operations)
-            // ============================
-            var restock = new RestockV5
-            {
-                Id = $"REST#{Guid.NewGuid():N}",
-                Pk = storePk,
-                Type = "Restock",
-
-                Date = req.Date.Kind == DateTimeKind.Unspecified
-                    ? DateTime.SpecifyKind(req.Date, DateTimeKind.Utc)
-                    : req.Date.ToUniversalTime(),
-
-                SupplierId = req.SupplierId.Trim(),
-                SupplierName = req.SupplierName.Trim(),
-                CreatedAtUtc = DateTime.UtcNow,
-
-                Lines = mergedLines.Select(l => new RestockLineV5
+            // ======================================
+            // 4) Build restock lines
+            // ======================================
+            var restockLines = mergedLines
+                .Select(l => new RestockLineV5
                 {
                     ProductId = l.ProductId,
                     ProductName = l.ProductName,
                     Quantity = l.Quantity,
                     UnitCost = l.CostPerUnit,
-                }).ToList()
+                    TotalCost = l.Quantity * l.CostPerUnit
+                })
+                .ToList();
+
+            var totalCost = restockLines.Sum(x => x.TotalCost);
+
+            // ======================================
+            // 5) Create restock document
+            // ======================================
+            var restockDate = req.Date == default
+                ? DateTime.UtcNow
+                : req.Date.Kind == DateTimeKind.Unspecified
+                    ? DateTime.SpecifyKind(req.Date, DateTimeKind.Utc)
+                    : req.Date.ToUniversalTime();
+
+            var restock = new RestockV5
+            {
+                Id = $"REST#{Guid.NewGuid():N}",
+                Pk = storePk,
+                Type = "Restock",
+                Date = restockDate,
+                SupplierId = req.SupplierId.Trim(),
+                SupplierName = req.SupplierName.Trim(),
+                Lines = restockLines,
+                Total = totalCost,
+                CreatedAtUtc = DateTime.UtcNow,
+                UpdatedAtUtc = DateTime.UtcNow
             };
 
-            // ============================
-            // 5) TransactionalBatch no PRODUCTS (atômico)
-            // ============================
-            var productsBatch = products.CreateTransactionalBatch(pk);
+            // ======================================
+            // 6) Update product quantities
+            // ======================================
+            var utcNow = DateTime.UtcNow;
+            var productsBatch = productsContainer.CreateTransactionalBatch(pk);
 
             foreach (var line in restock.Lines)
             {
@@ -104,45 +167,50 @@ public static class V5RestocksEndpoints
                     id: line.ProductId,
                     patchOperations: new[]
                     {
-                        PatchOperation.Increment("/quantity", line.Quantity)
+                        PatchOperation.Increment("/quantity", line.Quantity),
+                        PatchOperation.Set("/updatedAtUtc", utcNow)
                     });
             }
 
-            var productsResp = await productsBatch.ExecuteAsync();
+            var productsResponse = await productsBatch.ExecuteAsync();
 
-            if (!productsResp.IsSuccessStatusCode)
+            if (!productsResponse.IsSuccessStatusCode)
             {
                 return Results.Problem(
                     title: "Products TransactionalBatch failed",
-                    detail: $"Status: {(int)productsResp.StatusCode} {productsResp.StatusCode}",
-                    statusCode: (int)productsResp.StatusCode);
+                    detail: $"Status: {(int)productsResponse.StatusCode} {productsResponse.StatusCode}",
+                    statusCode: (int)productsResponse.StatusCode);
             }
 
-            // ============================
-            // 6) Criar StockMovement (1 doc com linhas) + Outbox
-            // ============================
+            // ======================================
+            // 7) Create stock movement
+            // ======================================
             var movement = new StockMovementV5
             {
                 Id = $"MOVE#{Guid.NewGuid():N}",
                 Pk = storePk,
                 Type = "StockMovement",
-                CreatedAtUtc = DateTime.UtcNow,
                 Reason = "RESTOCK",
                 RefId = restock.Id,
+                CreatedAtUtc = utcNow,
+                UpdatedAtUtc = utcNow,
                 Lines = restock.Lines.Select(l => new StockMovementLineV5
                 {
                     ProductId = l.ProductId,
-                    Delta = l.Quantity // positivo em restock
+                    Delta = l.Quantity
                 }).ToList()
             };
 
-            var evtPayload = new RestockCreatedEventV5
+            // ======================================
+            // 8) Create outbox event
+            // ======================================
+            var eventPayload = new RestockCreatedEventV5
             {
                 RestockId = restock.Id,
                 SupplierId = restock.SupplierId,
                 SupplierName = restock.SupplierName,
                 Date = restock.Date,
-                TotalCost = restock.Lines.Sum(x => x.Quantity * x.UnitCost),
+                TotalCost = totalCost,
                 Lines = restock.Lines.Select(l => new RestockCreatedLineEventV5
                 {
                     ProductId = l.ProductId,
@@ -156,38 +224,37 @@ public static class V5RestocksEndpoints
                 Id = $"OUTBOX#{Guid.NewGuid():N}",
                 Pk = storePk,
                 Type = "OutboxEvent",
-
                 EventType = "RestockCreated",
                 AggregateType = "RESTOCK",
                 AggregateId = restock.Id,
-
-                Payload = evtPayload,
+                Payload = eventPayload,
                 Status = "Pending",
                 Attempts = 0,
-                CreatedAtUtc = DateTime.UtcNow
+                CreatedAtUtc = utcNow,
+                UpdatedAtUtc = utcNow
             };
 
-            // ============================
-            // 7) TransactionalBatch no OPERATIONS (restock + movement + outbox juntos)
-            // ============================
-            var opsBatch = operations.CreateTransactionalBatch(pk)
+            // ======================================
+            // 9) Save restock + movement + outbox
+            // ======================================
+            var operationsBatch = operationsContainer.CreateTransactionalBatch(pk)
                 .CreateItem(restock)
                 .CreateItem(movement)
                 .CreateItem(outbox);
 
-            var opsResp = await opsBatch.ExecuteAsync();
+            var operationsResponse = await operationsBatch.ExecuteAsync();
 
-            if (!opsResp.IsSuccessStatusCode)
+            if (!operationsResponse.IsSuccessStatusCode)
             {
                 return Results.Problem(
                     title: "Operations TransactionalBatch failed",
-                    detail: $"Status: {(int)opsResp.StatusCode} {opsResp.StatusCode}",
-                    statusCode: (int)opsResp.StatusCode);
+                    detail: $"Status: {(int)operationsResponse.StatusCode} {operationsResponse.StatusCode}",
+                    statusCode: (int)operationsResponse.StatusCode);
             }
 
-            // ============================
-            // 8) Response
-            // ============================
+            // ======================================
+            // 10) Response
+            // ======================================
             return Results.Created($"/api/v5/restocks/{restock.Id}", new
             {
                 restock.Id,
@@ -199,6 +266,20 @@ public static class V5RestocksEndpoints
                 movementId = movement.Id,
                 outboxId = outbox.Id
             });
-        });
+        }
+        catch (CosmosException ex)
+        {
+            return Results.Problem(
+                title: "Cosmos DB error",
+                detail: ex.Message,
+                statusCode: (int)ex.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(
+                title: "Unexpected error",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
     }
 }

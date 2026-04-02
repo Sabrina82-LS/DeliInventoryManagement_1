@@ -10,7 +10,6 @@ public static class SeedRunnerV5
 {
     public static async Task RunAsync(IServiceProvider services, IWebHostEnvironment env)
     {
-        // Only run seed in Development
         if (!env.IsDevelopment())
             return;
 
@@ -28,14 +27,17 @@ public static class SeedRunnerV5
 
             var productsContainer = database.GetContainer(options.Containers.Products);
             var suppliersContainer = database.GetContainer(options.Containers.Suppliers);
+            var reorderRulesContainer = database.GetContainer(options.Containers.ReorderRules);
 
             var storePk = options.DefaultStorePk;
 
-            // Seed suppliers first
-            await SeedSuppliersAsync(suppliersContainer, storePk);
+            var suppliers = SupplierSeed.GetSuppliers();
+            var products = ProductSeed.GetProducts();
+            var reorderRules = ReorderRulesSeed.GetRules(products, suppliers);
 
-            // Then seed products
-            await SeedProductsAsync(productsContainer, storePk);
+            await SeedSuppliersAsync(suppliersContainer, suppliers, storePk);
+            await SeedProductsAsync(productsContainer, products, storePk);
+            await SeedReorderRulesAsync(reorderRulesContainer, reorderRules, storePk);
 
             Console.WriteLine("✅ SeedRunnerV5 completed successfully.");
         }
@@ -46,9 +48,9 @@ public static class SeedRunnerV5
         }
     }
 
-    private static async Task SeedSuppliersAsync(Container container, string storePk)
+    private static async Task SeedSuppliersAsync(Container container, List<SupplierV5> suppliers, string storePk)
     {
-        foreach (var supplier in SupplierSeed.GetSuppliers())
+        foreach (var supplier in suppliers)
         {
             if (supplier is null)
                 continue;
@@ -62,12 +64,11 @@ public static class SeedRunnerV5
         }
     }
 
-    private static async Task SeedProductsAsync(Container container, string storePk)
+    private static async Task SeedProductsAsync(Container container, List<ProductV5> products, string storePk)
     {
-        // Extra safety: remove any remaining products for this store
-        await DeleteAllProductsForStoreAsync(container, storePk);
+        await DeleteItemsByTypeForStoreAsync(container, storePk, "Product");
 
-        foreach (var product in ProductSeed.GetProducts())
+        foreach (var product in products)
         {
             if (product is null)
                 continue;
@@ -78,6 +79,25 @@ public static class SeedRunnerV5
             EnsureRequiredFields(product.Id, product.Pk, "Product");
 
             await container.UpsertItemAsync(product, new PartitionKey(product.Pk));
+        }
+    }
+
+    private static async Task SeedReorderRulesAsync(Container container, List<ReorderRuleV5> rules, string storePk)
+    {
+        await DeleteItemsByTypeForStoreAsync(container, storePk, "ReorderRule");
+
+        foreach (var rule in rules)
+        {
+            if (rule is null)
+                continue;
+
+            rule.Pk = storePk;
+            rule.Type = "ReorderRule";
+            rule.UpdatedAtUtc = DateTime.UtcNow;
+
+            EnsureRequiredFields(rule.Id, rule.Pk, "ReorderRule");
+
+            await container.UpsertItemAsync(rule, new PartitionKey(rule.Pk));
         }
     }
 
@@ -96,12 +116,14 @@ public static class SeedRunnerV5
         }
     }
 
-    private static async Task DeleteAllProductsForStoreAsync(Container container, string storePk)
+    private static async Task DeleteItemsByTypeForStoreAsync(Container container, string storePk, string type)
     {
-        var query = new QueryDefinition("SELECT c.id FROM c WHERE c.pk = @pk")
-            .WithParameter("@pk", storePk);
+        var query = new QueryDefinition(
+            "SELECT c.id FROM c WHERE c.pk = @pk AND c.type = @type")
+            .WithParameter("@pk", storePk)
+            .WithParameter("@type", type);
 
-        using var iterator = container.GetItemQueryIterator<ProductIdOnly>(
+        using var iterator = container.GetItemQueryIterator<ItemIdOnly>(
             query,
             requestOptions: new QueryRequestOptions
             {
@@ -119,17 +141,16 @@ public static class SeedRunnerV5
 
                 try
                 {
-                    await container.DeleteItemAsync<ProductV5>(item.Id, new PartitionKey(storePk));
+                    await container.DeleteItemAsync<object>(item.Id, new PartitionKey(storePk));
                 }
                 catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
                 {
-                    // Item was already deleted, ignore
                 }
             }
         }
     }
 
-    private sealed class ProductIdOnly
+    private sealed class ItemIdOnly
     {
         public string Id { get; set; } = string.Empty;
     }

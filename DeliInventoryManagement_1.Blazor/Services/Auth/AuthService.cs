@@ -23,6 +23,11 @@ public sealed class AuthService
         _state = state;
     }
 
+    /// <summary>
+    /// Exposes the no-auth HttpClient for use in Login.razor
+    /// (register, forgot-password, reset-password are all public endpoints)
+    /// </summary>
+    public HttpClient GetPublicClient() => _httpFactory.CreateClient("ApiNoAuth");
     // Loads auth data from browser storage after first render
     public async Task InitializeFromStorageAsync()
     {

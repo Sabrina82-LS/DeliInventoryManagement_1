@@ -10,7 +10,6 @@ public static class V5ProductsEndpoints
 {
     public static void MapV5Products(this RouteGroupBuilder v5)
     {
-        // ✅ Products = AdminOnly (Admin tem acesso total)
         var group = v5.MapGroup("/products")
             .WithTags("5 - Inventory V5 (Hybrid Cosmos /pk)")
             .RequireAuthorization();
@@ -22,10 +21,15 @@ public static class V5ProductsEndpoints
             var pk = CosmosContainerFactory.StorePk;
 
             var query = new QueryDefinition(
-                "SELECT * FROM c WHERE c.pk = @pk AND c.type = 'Product' ORDER BY c.name"
-            ).WithParameter("@pk", pk);
+                "SELECT * FROM c WHERE c.pk = @pk AND c.type = 'Product' ORDER BY c.name")
+                .WithParameter("@pk", pk);
 
-            var it = container.GetItemQueryIterator<ProductV5>(query);
+            var it = container.GetItemQueryIterator<ProductV5>(
+                query,
+                requestOptions: new QueryRequestOptions
+                {
+                    PartitionKey = new PartitionKey(pk)
+                });
 
             var results = new List<ProductV5>();
             while (it.HasMoreResults)
@@ -46,7 +50,10 @@ public static class V5ProductsEndpoints
             try
             {
                 var read = await container.ReadItemAsync<ProductV5>(id, new PartitionKey(pk));
-                if (read.Resource.Type != "Product") return Results.NotFound();
+
+                if (read.Resource.Type != "Product")
+                    return Results.NotFound();
+
                 return Results.Ok(read.Resource);
             }
             catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
@@ -61,17 +68,23 @@ public static class V5ProductsEndpoints
             if (string.IsNullOrWhiteSpace(req.Name))
                 return Results.BadRequest("Name is required.");
 
+            if (string.IsNullOrWhiteSpace(req.CategoryId))
+                return Results.BadRequest("CategoryId is required.");
+
+            if (string.IsNullOrWhiteSpace(req.CategoryName))
+                return Results.BadRequest("CategoryName is required.");
+
             var container = factory.Products();
             var pk = CosmosContainerFactory.StorePk;
+            var now = DateTime.UtcNow;
 
             var product = new ProductV5
             {
                 Id = $"PROD#{Guid.NewGuid():N}",
                 Pk = pk,
                 Type = "Product",
-                CreatedAtUtc = DateTime.UtcNow,
-                UpdatedAtUtc = DateTime.UtcNow,
-
+                CreatedAtUtc = now,
+                UpdatedAtUtc = now,
                 Name = req.Name.Trim(),
                 CategoryId = req.CategoryId.Trim(),
                 CategoryName = req.CategoryName.Trim(),
@@ -98,12 +111,23 @@ public static class V5ProductsEndpoints
             {
                 var read = await container.ReadItemAsync<ProductV5>(id, new PartitionKey(pk));
                 existing = read.Resource;
-                if (existing.Type != "Product") return Results.NotFound();
+
+                if (existing.Type != "Product")
+                    return Results.NotFound();
             }
             catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
             {
                 return Results.NotFound();
             }
+
+            if (string.IsNullOrWhiteSpace(req.Name))
+                return Results.BadRequest("Name is required.");
+
+            if (string.IsNullOrWhiteSpace(req.CategoryId))
+                return Results.BadRequest("CategoryId is required.");
+
+            if (string.IsNullOrWhiteSpace(req.CategoryName))
+                return Results.BadRequest("CategoryName is required.");
 
             existing.Name = req.Name.Trim();
             existing.CategoryId = req.CategoryId.Trim();
@@ -128,6 +152,11 @@ public static class V5ProductsEndpoints
 
             try
             {
+                var read = await container.ReadItemAsync<ProductV5>(id, new PartitionKey(pk));
+
+                if (read.Resource.Type != "Product")
+                    return Results.NotFound();
+
                 await container.DeleteItemAsync<ProductV5>(id, new PartitionKey(pk));
                 return Results.NoContent();
             }

@@ -17,14 +17,8 @@
         content: "";
         position: absolute;
         inset: 0;
-        background: linear-gradient( to right, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.18) );
+        background: linear-gradient(to right, rgba(0,0,0,0.35), rgba(0,0,0,0.18));
     }
-
-.login-wrapper {
-    margin-top: 0;
-    padding-top: 0;
-    width: 100%;
-}
 
 .login-card {
     position: relative;
@@ -40,22 +34,56 @@
     color: #fff;
 }
 
+/* ── Tab switcher ── */
+.login-tabs {
+    display: flex;
+    gap: 8px;
+    background: rgba(0,0,0,0.25);
+    border-radius: 12px;
+    padding: 4px;
+}
+
+.login-tab {
+    flex: 1;
+    padding: 8px 0;
+    border: none;
+    border-radius: 9px;
+    font-weight: 700;
+    font-size: 0.92rem;
+    background: transparent;
+    color: rgba(255,255,255,0.70);
+    cursor: pointer;
+    transition: background 150ms ease, color 150ms ease;
+}
+
+    .login-tab.active {
+        background: rgba(255,255,255,0.22);
+        color: #ffffff;
+    }
+
+    .login-tab:hover:not(.active) {
+        background: rgba(255,255,255,0.10);
+        color: #ffffff;
+    }
+
+/* ── Title & subtitle ── */
 .login-title {
     text-align: center;
-    margin-bottom: 10px;
-    font-size: 2.4rem;
+    margin-bottom: 6px;
+    font-size: 2rem;
     font-weight: 800;
     color: #ffffff;
-    letter-spacing: 0.3px;
 }
 
 .login-subtitle {
     text-align: center;
-    margin-bottom: 24px;
-    color: rgba(255, 255, 255, 0.88);
-    font-size: 0.98rem;
+    margin-bottom: 20px;
+    color: rgba(255,255,255,0.88);
+    font-size: 0.95rem;
+    display: block;
 }
 
+/* ── Form controls ── */
 .login-card .form-label {
     font-weight: 700;
     color: #ffffff;
@@ -65,23 +93,24 @@
 .login-card .form-control {
     border-radius: 12px;
     min-height: 48px;
-    border: 1px solid rgba(255, 255, 255, 0.24);
-    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255,255,255,0.24);
+    background: rgba(255,255,255,0.16);
     color: #ffffff;
     box-shadow: none;
 }
 
     .login-card .form-control::placeholder {
-        color: rgba(255, 255, 255, 0.75);
+        color: rgba(255,255,255,0.65);
     }
 
     .login-card .form-control:focus {
         border-color: #f1a24f;
-        background: rgba(255, 255, 255, 0.22);
-        box-shadow: 0 0 0 0.2rem rgba(241, 162, 79, 0.18);
+        background: rgba(255,255,255,0.22);
+        box-shadow: 0 0 0 0.2rem rgba(241,162,79,0.18);
         color: #ffffff;
     }
 
+/* ── Primary button ── */
 .login-card .btn-primary {
     margin-top: 8px;
     min-height: 48px;
@@ -93,14 +122,36 @@
 }
 
     .login-card .btn-primary:hover {
-        filter: brightness(1.04);
+        filter: brightness(1.05);
     }
 
+    .login-card .btn-primary:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+/* ── Forgot password / back links ── */
+.login-link {
+    color: rgba(255,255,255,0.85) !important;
+    font-weight: 600;
+    font-size: 0.9rem;
+    text-decoration: underline;
+    padding: 0;
+}
+
+    .login-link:hover {
+        color: #ffffff !important;
+    }
+
+/* ── Alerts ── */
+.login-card .alert {
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.9rem;
+}
+
+/* ── Mobile ── */
 @media (max-width: 768px) {
-    .login-shell {
-        padding: 0;
-    }
-
     .login-card {
         max-width: calc(100% - 32px);
         padding: 28px 22px;
@@ -108,6 +159,6 @@
     }
 
     .login-title {
-        font-size: 2rem;
+        font-size: 1.75rem;
     }
 }
