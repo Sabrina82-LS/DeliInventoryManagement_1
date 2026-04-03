@@ -61,6 +61,7 @@
                             <label class="form-label">Product</label>
                             <select class="form-select"
                                     @bind="selectedProductId"
+                                    @bind:after="OnProductSelected"
                                     disabled="@isSaving">
                                 <option value="">-- Select product --</option>
                                 @foreach (var p in products)
@@ -220,6 +221,16 @@
             public decimal Total => Quantity * UnitCost;
         }
 
+        private void OnProductSelected()
+        {
+            if (string.IsNullOrWhiteSpace(selectedProductId)) return;
+
+            var product = products.FirstOrDefault(p => p.Id == selectedProductId);
+            if (product is not null && product.Cost > 0)
+            {
+                lineUnitCost = product.Cost;
+            }
+        }
         protected override async Task OnInitializedAsync()
         {
             try

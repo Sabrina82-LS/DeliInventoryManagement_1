@@ -80,38 +80,24 @@
                 </div>
             </div>
 
-            <!-- Mini chart (simple bars) -->
-            <div class="panel chart-panel">
-                <div class="chart-head">
-                    <div class="chart-title">Top quantities</div>
-                    <div class="muted">Based on current filters</div>
-                </div>
-
-                @if (!ChartItems.Any())
-                {
-                    <p class="muted mb-0">No data to display.</p>
-                }
-                else
-                {
-                    <div class="mini-chart">
-                        @foreach (var item in ChartItems)
-                        {
-                            var pct = MaxQty == 0 ? 0 : (int)Math.Round((item.Quantity / (double)MaxQty) * 100);
-
-                            <div class="bar-row" title="@item.Name - Qty: @item.Quantity">
-                                <div class="bar-label">
-                                    <span class="bar-name">@item.Name</span>
-                                    <span class="bar-value">@item.Quantity</span>
-                                </div>
-
-                                <div class="bar-track">
-                                    <div class="bar-fill" style="width:@pct%"></div>
-                                </div>
-                            </div>
-                        }
+                <!-- Mini chart (Chart.js grouped bar) -->
+                <div class="panel chart-panel">
+                    <div class="chart-head">
+                        <div class="chart-title">Cost vs Price by category</div>
+                        <div class="muted">Average cost and price per category</div>
                     </div>
-                }
-            </div>
+
+                    @if (!CategoryChartData.Any())
+                    {
+                        <p class="muted mb-0">No data to display.</p>
+                    }
+                    else
+                    {
+                        <div style="position:relative;width:100%;height:320px;">
+                            <canvas id="stockChart"></canvas>
+                        </div>
+                    }
+                </div>
 
             <!-- Table -->
             <div class="table-panel">
@@ -230,5 +216,68 @@
         selectedCategoryId = "";
         showLowStockOnly = false;
     }
+
+        [Inject] IJSRuntime JS { get; set; } = default!;
+
+        protected override async Task OnAfterRenderAsync(bool firstRender)
+        {
+            if (!isLoading && CategoryChartData.Any())
+            {
+                var labels = CategoryChartData.Select(x => x.Name).ToArray();
+                var costs = CategoryChartData.Select(x => (object)x.AvgCost).ToArray();
+                var prices = CategoryChartData.Select(x => (object)x.AvgPrice).ToArray();
+                await JS.InvokeVoidAsync("_renderStockChart", labels, costs, prices);
+            }
+        }
+        private List<(string Name, decimal AvgCost, decimal AvgPrice)> CategoryChartData =>
+        FilteredProducts
+        .Where(p => !string.IsNullOrWhiteSpace(p.CategoryName))
+        .GroupBy(p => p.CategoryName)
+        .Select(g => (
+        Name: g.Key,
+        AvgCost: Math.Round(g.Average(x => x.Cost), 2),
+        AvgPrice: Math.Round(g.Average(x => x.Price), 2)
+        ))
+        .OrderBy(x => x.Name)
+        .ToList();
 }
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+    <script>
+        window._renderStockChart = function(labels, costs, prices) {
+            const canvas = document.getElementById('stockChart');
+            if (!canvas) return;
+            if (canvas._chartInstance) canvas._chartInstance.destroy();
+            const colors = ['#378ADD','#1D9E75','#D85A30','#7F77DD','#FAC775','#E24B4A'];
+            canvas._chartInstance = new Chart(canvas, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Avg cost',
+                            data: costs,
+                            backgroundColor: labels.map((_, i) => colors[i % colors.length]),
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Avg price',
+                            data: prices,
+                            backgroundColor: labels.map((_, i) => colors[i % colors.length] + '80'),
+                            borderRadius: 4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { display: false }, ticks: { color: '#888' } },
+                        y: { grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { color: '#888', callback: v => '€' + v.toFixed(2) } }
+                    }
+                }
+            });
+        };
+    </script>
 </AuthGuard>

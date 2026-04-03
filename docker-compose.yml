@@ -1,15 +1,52 @@
 services:
+
   rabbitmq:
     image: rabbitmq:3-management
     container_name: deli-rabbitmq
     ports:
-      - "5672:5672"    # AMQP
-      - "15672:15672"  # Management UI
+      - "5672:5672"
+      - "15672:15672"
     environment:
       RABBITMQ_DEFAULT_USER: admin
       RABBITMQ_DEFAULT_PASS: admin123
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: DeliInventoryManagement_1.Api/Dockerfile
+    container_name: deli-api
+    ports:
+      - "5064:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - RabbitMQ__Host=rabbitmq
+      - RabbitMQ__Port=5672
+      - RabbitMQ__Username=admin
+      - RabbitMQ__Password=admin123
+      - CosmosDb__AccountEndpoint=https://deli-inventory.documents.azure.com:443/
+      - CosmosDb__AccountKey=M9BldPieyAKd38kFb7Sw1tT8CyxirP3PUtPQzwv7juxMppwjCqfE3JsjLlip1INtRvgn9KBUhRj4ACDbCdOLvg==
+      - CosmosDb__DatabaseId=DeliInventoryDb
+      - CosmosDb__DefaultStorePk=STORE#1
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  blazor:
+    build:
+      context: .
+      dockerfile: DeliInventoryManagement_1.Blazor/Dockerfile
+    container_name: deli-blazor
+    ports:
+      - "8081:8080"
+    depends_on:
+      - api
 
 volumes:
   rabbitmq_data:
