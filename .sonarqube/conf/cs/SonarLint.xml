@@ -2,6 +2,10 @@
 <AnalysisInput>
   <Settings>
     <Setting>
+      <Key>sonar.cs.opencover.reportsPaths</Key>
+      <Value>DeliInventoryManagement_1.Api.Tests/coverage/coverage.opencover.xml</Value>
+    </Setting>
+    <Setting>
       <Key>sonar.cs.ignoreHeaderComments</Key>
       <Value>true</Value>
     </Setting>

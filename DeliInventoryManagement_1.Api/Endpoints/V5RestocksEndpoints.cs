@@ -15,6 +15,8 @@ public static class V5RestocksEndpoints
             .RequireAuthorization();
 
         group.MapPost("", CreateRestock);
+        group.MapGet("/report", GetRestocksReport);
+
     }
 
     private static async Task<IResult> CreateRestock(
@@ -266,6 +268,110 @@ public static class V5RestocksEndpoints
                 movementId = movement.Id,
                 outboxId = outbox.Id
             });
+        }
+        catch (CosmosException ex)
+        {
+            return Results.Problem(
+                title: "Cosmos DB error",
+                detail: ex.Message,
+                statusCode: (int)ex.StatusCode);
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(
+                title: "Unexpected error",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    // =====================================================
+    // GET /api/v5/restocks/report?from=2025-01-01&to=2026-12-31
+    // Returns one row per LINE so report shows
+    // ProductName and Cost correctly for each product
+    // =====================================================
+    private static async Task<IResult> GetRestocksReport(
+        CosmosClient cosmos,
+        IConfiguration cfg,
+        DateTime? from,
+        DateTime? to)
+    {
+        try
+        {
+            var cosmosSection = cfg.GetSection("CosmosDb");
+            var dbId = cosmosSection["DatabaseId"] ?? cosmosSection["DatabaseName"];
+            var operationsContainerId =
+                cosmosSection["Containers:Operations"] ?? "Operations";
+            var storePk = cosmosSection["DefaultStorePk"] ?? "STORE#1";
+
+            if (string.IsNullOrWhiteSpace(dbId))
+                return Results.Problem("CosmosDb:DatabaseId is not configured.");
+
+            var container = cosmos.GetContainer(dbId, operationsContainerId);
+
+            // Query all restocks in the date range
+            var query = new QueryDefinition(
+                @"SELECT * FROM c 
+              WHERE c.pk = @pk 
+              AND c.type = 'Restock'
+              AND (@from = null OR c.date >= @from)
+              AND (@to   = null OR c.date <= @to)
+              ORDER BY c.date DESC")
+                .WithParameter("@pk", storePk)
+                .WithParameter("@from", from.HasValue
+                    ? from.Value.ToString("yyyy-MM-dd") : null)
+                .WithParameter("@to", to.HasValue
+                    ? to.Value.Date.AddDays(1).ToString("yyyy-MM-dd") : null);
+
+            var iterator = container.GetItemQueryIterator<RestockV5>(
+                query,
+                requestOptions: new QueryRequestOptions
+                {
+                    PartitionKey = new PartitionKey(storePk)
+                });
+
+            // Flatten each restock Lines into individual report rows
+            var reportRows = new List<object>();
+
+            while (iterator.HasMoreResults)
+            {
+                var page = await iterator.ReadNextAsync();
+
+                foreach (var restock in page)
+                {
+                    if (restock.Lines == null || restock.Lines.Count == 0)
+                    {
+                        reportRows.Add(new
+                        {
+                            id = restock.Id,
+                            date = restock.Date,
+                            productId = "",
+                            productName = "",
+                            quantityAdded = 0,
+                            cost = 0m,
+                            supplierName = restock.SupplierName
+                        });
+                        continue;
+                    }
+
+                    // One row per line = correct ProductName and Cost per product
+                    foreach (var line in restock.Lines)
+                    {
+                        reportRows.Add(new
+                        {
+                            id = restock.Id,
+                            date = restock.Date,
+                            productId = line.ProductId,
+                            productName = line.ProductName,
+                            quantityAdded = line.Quantity,
+                            cost = line.TotalCost,
+                            supplierName = restock.SupplierName
+                        });
+                    }
+                }
+            }
+
+            return Results.Ok(reportRows);
         }
         catch (CosmosException ex)
         {

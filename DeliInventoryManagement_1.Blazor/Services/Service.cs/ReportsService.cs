@@ -73,6 +73,6 @@ public sealed class ReportsService : IReportsService
     public async Task<List<RestockReportItem>> GetRestocksAsync(DateTime? from, DateTime? to)
     {
         var qs = BuildDateQuery(from, to);
-        return await GetAsync<List<RestockReportItem>>($"/api/v5/reports/restocks{qs}") ?? new();
+        return await GetAsync<List<RestockReportItem>>($"/api/v5/restocks/report{qs}") ?? new();
     }
 }

@@ -149,10 +149,12 @@
     <Property Name="sonar.java.jvmframeworkconfig.activate">true</Property>
     <Property Name="sonar.updatecenter.url">https://downloads.sonarsource.com/sonarqube/update/update-center.properties</Property>
     <Property Name="sonar.core.id">147B411E-AZy1obyuMiAQPNcccVeg</Property>
-    <Property Name="sonar.core.startTime">26/03/2026 09:01:06</Property>
+    <Property Name="sonar.core.startTime">01/04/2026 16:32:10</Property>
   </ServerSettings>
   <LocalSettings>
     <Property Name="sonar.host.url">http://localhost:9000</Property>
+    <Property Name="sonar.cs.opencover.reportsPaths">DeliInventoryManagement_1.Api.Tests/coverage/coverage.opencover.xml</Property>
+    <Property Name="sonar.exclusions">**/obj/**,**/bin/**,**/wwwroot/**,**/*.Designer.cs,DeliInventoryManagement_1.Api.Tests/coverage/coverage.opencover.xml</Property>
   </LocalSettings>
   <ScannerOptsSettings />
   <AnalyzersSettings>

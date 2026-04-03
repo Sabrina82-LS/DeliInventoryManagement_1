@@ -16,6 +16,7 @@ public sealed class RestockLineV5
     [JsonPropertyName("unitCost")]
     public decimal UnitCost { get; set; }
 
-    [JsonIgnore]
+    [JsonPropertyName("totalCost")]
+
     public decimal TotalCost { get; set; }
 }

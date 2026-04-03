@@ -3,6 +3,7 @@
     cursor: pointer;
     width: 3.5rem;
     height: 2.5rem;
+    z-index: 30;
     color: white;
     position: absolute;
     top: 0.5rem;
@@ -64,11 +65,15 @@
         background: none;
         border: none;
         border-radius: 4px;
-        height: 3rem;
+        height: auto;
+        min-height: 3rem;
         display: flex;
         align-items: center;
-        line-height: 3rem;
+        line-height: 1.4;
         width: 100%;
+        white-space: normal;
+        word-break: break-word;
+        padding: 8px 4px;
     }
 
 .nav-item ::deep a.active {
@@ -83,6 +88,8 @@
 
 .nav-scrollable {
     display: none;
+    max-height: 85vh;
+    overflow-y: auto;
 }
 
 .navbar-toggler:checked ~ .nav-scrollable {
@@ -102,4 +109,61 @@
         height: calc(100vh - 3.5rem);
         overflow-y: auto;
     }
+}
+/* =====================================================
+   COLORED NAV LINKS — each page gets its own color
+===================================================== */
+
+/* Active link default */
+.nav-item ::deep a.active {
+    color: white !important;
+    font-weight: 700;
+}
+
+/* Home — grey */
+.nav-item ::deep a[href=""].active,
+.nav-item ::deep a[href="/"].active {
+    background-color: #4b5563 !important;
+}
+
+/* Dashboard — dark blue */
+.nav-item ::deep a[href="dashboard"].active {
+    background-color: #1e40af !important;
+}
+
+/* Sales — green */
+.nav-item ::deep a[href="sales"].active {
+    background-color: #16a34a !important;
+}
+
+/* Stock — orange */
+.nav-item ::deep a[href="stock"].active {
+    background-color: #ea580c !important;
+}
+
+/* Restocks — blue */
+.nav-item ::deep a[href="restocks"].active {
+    background-color: #2563eb !important;
+}
+
+/* Products — slate */
+.nav-item ::deep a[href="products"].active {
+    background-color: #475569 !important;
+}
+
+/* Purchase Orders — purple */
+.nav-item ::deep a[href="purchase-orders"].active {
+    background-color: #7c3aed !important;
+}
+
+/* Reports — cyan */
+.nav-item ::deep a[href="reports"].active {
+    background-color: #0891b2 !important;
+}
+
+/* Fix text overflow on mobile — never cut off */
+.nav-item ::deep .nav-link span:not(.bi) {
+    white-space: normal;
+    word-break: break-word;
+    line-height: 1.3;
 }
