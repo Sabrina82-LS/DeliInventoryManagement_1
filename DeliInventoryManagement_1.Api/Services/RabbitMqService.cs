@@ -6,6 +6,8 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Exceptions;
 using System.Text;
 using System.Text.Json;
+using System.Collections.Generic;
+
 
 namespace DeliInventoryManagement_1.Api.Services;
 
@@ -99,13 +101,13 @@ public class RabbitMqService : IRabbitMqService, IDisposable
 
         if (_channel is null)
             throw new InvalidOperationException("RabbitMQ channel is not available.");
-
-        _channel.QueueDeclare("sale.created", durable: true, exclusive: false, autoDelete: false);
-        _channel.QueueDeclare("restock.created", durable: true, exclusive: false, autoDelete: false);
-        _channel.QueueDeclare("sale.created.retry", durable: true, exclusive: false, autoDelete: false);
-        _channel.QueueDeclare("restock.created.retry", durable: true, exclusive: false, autoDelete: false);
-        _channel.QueueDeclare("sale.created.dlq", durable: true, exclusive: false, autoDelete: false);
-        _channel.QueueDeclare("restock.created.dlq", durable: true, exclusive: false, autoDelete: false);
+       
+        //_channel.QueueDeclare("sale.created", durable: true, exclusive: false, autoDelete: false);
+        //_channel.QueueDeclare("restock.created", durable: true, exclusive: false, autoDelete: false);
+        //_channel.QueueDeclare("sale.created.retry", durable: true, exclusive: false, autoDelete: false);
+        //_channel.QueueDeclare("restock.created.retry", durable: true, exclusive: false, autoDelete: false);
+        //_channel.QueueDeclare("sale.created.dlq", durable: true, exclusive: false, autoDelete: false);
+        //_channel.QueueDeclare("restock.created.dlq", durable: true, exclusive: false, autoDelete: false);
         _channel.QueueDeclare("product.updated", durable: true, exclusive: false, autoDelete: false);
         _channel.QueueDeclare("product.discontinued", durable: true, exclusive: false, autoDelete: false);
         _channel.QueueDeclare("low.stock.alert", durable: true, exclusive: false, autoDelete: false);

@@ -34,7 +34,7 @@ main {
    Top Navigation Bar
    ========================================= */
 
-.topbar {
+/*.topbar {
     height: 64px;
     display: flex;
     align-items: center;
@@ -76,10 +76,10 @@ main {
 .topbar-right {
     display: flex;
     align-items: center;
-}
+}*/
 
 /* IMPORTANT: ::deep ensures the <a> rendered by NavLink is styled */
-.topbar ::deep .toplink {
+/*.topbar ::deep .toplink {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -106,10 +106,10 @@ main {
         border-color: #d98b2b;
         color: #ffffff;
         transform: none;
-    }
+    }*/
 
 /* Mobile tweaks */
-@media (max-width: 640.98px) {
+/*@media (max-width: 640.98px) {
     .topbar {
         height: auto;
         padding: 12px 14px;
@@ -120,9 +120,106 @@ main {
         padding: 0;
         justify-content: flex-start;
     }
+}*/
+
+.topbar {
+    height: auto;
+    min-height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 18px;
+    background: #14181f;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
+.topbar-left {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
 
+.brand {
+    font-weight: 800;
+    font-size: 18px;
+    color: #ffffff;
+    white-space: nowrap;
+}
+
+.topbar-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+    padding: 0 8px;
+    flex-wrap: wrap;
+}
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.topbar ::deep .toplink {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 999px;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 14px;
+    color: #f4f6f8;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.04);
+    transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+    white-space: nowrap;
+}
+
+    .topbar ::deep .toplink:hover {
+        background: rgba(255, 255, 255, 0.10);
+        border-color: rgba(255, 255, 255, 0.24);
+        transform: translateY(-1px);
+    }
+
+    .topbar ::deep .toplink.active {
+        background: #f97316;
+        border-color: #f97316;
+        color: #ffffff;
+    }
+
+@media (max-width: 768px) {
+    .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 10px 14px;
+    }
+
+    .topbar-center {
+        width: 100%;
+        justify-content: flex-start;
+        padding: 0;
+    }
+
+    .topbar-right {
+        width: 100%;
+    }
+
+    .topbar ::deep .toplink {
+        font-size: 13px;
+        padding: 0 10px;
+        height: 32px;
+    }
+}
 /* =========================================
    Blazor error UI
    ========================================= */
